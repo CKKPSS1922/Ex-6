@@ -1,0 +1,2308 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Врата Судьбы — DnD Online Board</title>
+<style>
+  :root{
+    --bg:#0b0710;
+    --bg2:#140a1c;
+    --panel:#171022cc;
+    --panel-solid:#1b1128;
+    --gold:#c9a24a;
+    --gold2:#e9c874;
+    --accent:#7a4bd6;
+    --accent2:#b489ff;
+    --danger:#c0392b;
+    --text:#ece6d8;
+    --muted:#8a7f9a;
+    --line:#3a2a55;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:"Segoe UI",Roboto,system-ui,sans-serif;color:var(--text);background:radial-gradient(1200px 800px at 30% 10%,#231238 0%,#0b0710 60%,#050308 100%);overflow:hidden}
+  h1,h2,h3{font-family:"Cinzel","Times New Roman",serif;letter-spacing:.08em;margin:0}
+  button{font-family:inherit;color:var(--text);cursor:pointer}
+  input,select,textarea{font-family:inherit}
+
+  /* ---------- Главное меню ---------- */
+  #menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+        background:
+          radial-gradient(600px 400px at 50% 30%,rgba(122,75,214,.35),transparent 60%),
+          radial-gradient(900px 600px at 50% 90%,rgba(201,162,74,.15),transparent 70%),
+          linear-gradient(180deg,#0b0710,#050308);
+        z-index:1000}
+  #menu .runes{position:absolute;inset:0;background-image:
+        radial-gradient(2px 2px at 20% 30%,#c9a24a55,transparent 50%),
+        radial-gradient(2px 2px at 70% 60%,#b489ff55,transparent 50%),
+        radial-gradient(1px 1px at 40% 80%,#ffffff55,transparent 50%),
+        radial-gradient(1px 1px at 85% 20%,#ffffff44,transparent 50%);
+        pointer-events:none;animation:twinkle 6s infinite alternate}
+  @keyframes twinkle{from{opacity:.5}to{opacity:1}}
+  #menu h1{font-size:64px;background:linear-gradient(180deg,#e9c874,#8a5a1a);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(233,200,116,.25);text-align:center;line-height:1}
+  #menu .sub{color:var(--muted);letter-spacing:.35em;text-transform:uppercase;margin-top:12px;font-size:12px}
+  .menu-cards{display:flex;gap:28px;margin-top:48px;flex-wrap:wrap;justify-content:center}
+  .card{width:280px;padding:28px;border:1px solid var(--line);border-radius:14px;
+        background:linear-gradient(180deg,#1a0f28cc,#0e0818cc);backdrop-filter:blur(6px);
+        text-align:center;transition:.25s transform,.25s box-shadow,.25s border-color;position:relative;overflow:hidden}
+  .card:hover{transform:translateY(-6px);border-color:var(--gold);box-shadow:0 20px 40px -20px #000, 0 0 40px -10px rgba(201,162,74,.35)}
+  .card .icon{font-size:56px;filter:drop-shadow(0 0 12px rgba(233,200,116,.5));margin-bottom:14px}
+  .card h2{font-size:22px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:13px;line-height:1.5;margin:10px 0 20px}
+  .btn{display:inline-block;padding:10px 20px;border:1px solid var(--gold);color:var(--gold2);border-radius:8px;background:transparent;text-transform:uppercase;letter-spacing:.15em;font-size:12px;transition:.2s all}
+  .btn:hover{background:var(--gold);color:#1a0f28}
+  .btn.primary{background:linear-gradient(180deg,#c9a24a,#8a5a1a);color:#1a0f28;border-color:#c9a24a}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.ghost{border-color:var(--line);color:var(--muted)}
+  .btn.danger{border-color:var(--danger);color:#ff9a8b}
+  .btn.danger:hover{background:var(--danger);color:#fff}
+
+  /* ---------- Формы ---------- */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1500;backdrop-filter:blur(6px)}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:26px;width:360px;box-shadow:0 30px 60px -20px #000}
+  .modal h3{color:var(--gold2);margin-bottom:14px;font-size:18px}
+  .modal label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin:12px 0 6px}
+  .modal input[type=text],.modal input[type=password],.modal input[type=color]{width:100%;padding:10px;background:#0d0716;border:1px solid var(--line);color:var(--text);border-radius:8px;outline:none}
+  .modal input:focus{border-color:var(--gold)}
+  .modal .row{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+  .err{color:#ff9a8b;font-size:12px;margin-top:8px;min-height:16px}
+
+  /* ---------- Основной интерфейс ---------- */
+  #app{display:none;height:100%;width:100%;position:relative}
+  #app.show{display:grid;grid-template-columns:260px 1fr 320px;grid-template-rows:52px 1fr;grid-template-areas:"top top top" "left board right"}
+
+  #topbar{grid-area:top;display:flex;align-items:center;padding:0 18px;gap:16px;
+          background:linear-gradient(180deg,#170f24,#0d0817);border-bottom:1px solid var(--line);z-index:10}
+  #topbar .brand{font-family:"Cinzel",serif;color:var(--gold2);letter-spacing:.2em;font-size:14px}
+  #topbar .who{color:var(--muted);font-size:12px}
+  #topbar .who b{color:var(--text)}
+  #topbar .spacer{flex:1}
+  #topbar .tool-mini{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  #topbar .tool-mini:hover{border-color:var(--gold);color:var(--gold2)}
+
+  /* Левая панель (инструменты) */
+  #leftpanel{grid-area:left;background:var(--panel);border-right:1px solid var(--line);padding:14px;overflow-y:auto}
+  .panel-title{font-family:"Cinzel",serif;color:var(--gold2);font-size:12px;letter-spacing:.2em;text-transform:uppercase;margin:14px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .panel-title:first-child{margin-top:0}
+  .tool-row{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .tool{padding:10px 6px;background:#100819;border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:11px;text-align:center;transition:.15s}
+  .tool:hover{border-color:var(--gold);color:var(--gold2)}
+  .tool.active{background:linear-gradient(180deg,#3a2560,#2a1745);border-color:var(--accent2);color:#fff;box-shadow:inset 0 0 12px rgba(180,137,255,.3)}
+  .field{margin:8px 0}
+  .field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin-bottom:4px}
+  .field input[type=range]{width:100%}
+  .field input[type=color]{width:100%;height:32px;background:transparent;border:1px solid var(--line);border-radius:6px}
+  .field input[type=text],.field input[type=number],.field select{width:100%;padding:6px 8px;background:#0d0716;border:1px solid var(--line);color:var(--text);border-radius:6px;font-size:12px;outline:none}
+  .btn-block{display:block;width:100%;padding:9px;background:#100819;border:1px solid var(--line);color:var(--text);border-radius:6px;font-size:12px;margin-top:6px;text-align:center}
+  .btn-block:hover{border-color:var(--gold);color:var(--gold2)}
+  .btn-block.primary{background:linear-gradient(180deg,#3a2560,#2a1745);border-color:var(--accent2);color:#fff}
+
+  /* Доска */
+  #boardWrap{grid-area:board;position:relative;overflow:hidden;background:#050308}
+  #boardScroll{position:absolute;inset:0;overflow:hidden;cursor:default}
+  #boardLayers{position:absolute;left:0;top:0;transform-origin:0 0}
+  #boardLayers canvas, #boardLayers .tokens{position:absolute;left:0;top:0}
+  #tokensLayer{position:absolute;left:0;top:0;pointer-events:none}
+  .token{position:absolute;pointer-events:auto;user-select:none;cursor:grab;
+         border-radius:50%;border:3px solid;box-shadow:0 4px 12px rgba(0,0,0,.6),0 0 0 2px rgba(0,0,0,.4) inset;
+         display:flex;align-items:flex-end;justify-content:center;overflow:visible}
+  .token.dragging{cursor:grabbing;transform:scale(1.05);z-index:100}
+  .token .avatar{position:absolute;inset:0;border-radius:50%;background-size:cover;background-position:center}
+  .token .name-tag{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);
+                   background:rgba(0,0,0,.75);color:#fff;font-size:11px;padding:2px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;border:1px solid var(--line)}
+  .token.npc .name-tag{color:#ff9a8b}
+  .token .hp{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#0d0716;border:1px solid var(--line);padding:1px 6px;border-radius:8px;font-size:10px;color:var(--gold2);white-space:nowrap;pointer-events:none;display:none}
+  .token.has-hp .hp{display:block}
+
+  /* Зум-контролы */
+  #zoomCtl{position:absolute;bottom:14px;left:14px;display:flex;gap:6px;z-index:5}
+  #zoomCtl button{width:34px;height:34px;background:var(--panel-solid);border:1px solid var(--line);color:var(--gold2);border-radius:6px;font-size:16px}
+  #zoomCtl button:hover{border-color:var(--gold)}
+
+  /* Правая панель (чат) */
+  #rightpanel{grid-area:right;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .tabs{display:flex;border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;padding:12px;background:transparent;border:none;color:var(--muted);font-size:12px;letter-spacing:.15em;text-transform:uppercase;border-bottom:2px solid transparent}
+  .tabs button.active{color:var(--gold2);border-bottom-color:var(--gold)}
+  .tab-content{flex:1;overflow-y:auto;display:none;padding:12px}
+  .tab-content.active{display:flex;flex-direction:column}
+  #chatMessages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .msg{padding:8px 10px;border-radius:8px;background:#100819;border:1px solid var(--line);font-size:13px;line-height:1.4;animation:fadein .25s}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .msg .from{font-size:11px;color:var(--gold2);font-weight:600;letter-spacing:.05em}
+  .msg.roll{background:linear-gradient(180deg,#2a1745,#1a0f28);border-color:var(--accent2)}
+  .msg.roll .result{font-family:"Cinzel",serif;font-size:20px;color:#fff;margin-top:4px}
+  .msg.pm{background:#2a1a10;border-color:#8a5a1a}
+  .msg.pm .from::after{content:" ⇢ приватно";color:#c9a24a;font-weight:400}
+  .msg.system{background:transparent;border:none;color:var(--muted);text-align:center;font-style:italic;font-size:11px}
+  #chatInputWrap{display:flex;gap:6px;flex-direction:column}
+  #chatInputWrap .hints{font-size:10px;color:var(--muted);line-height:1.4}
+  #chatInputRow{display:flex;gap:6px}
+  #chatInput{flex:1;padding:8px 10px;background:#0d0716;border:1px solid var(--line);color:var(--text);border-radius:6px;font-size:13px;outline:none}
+  #chatInput:focus{border-color:var(--gold)}
+  #chatSend{padding:8px 14px;background:linear-gradient(180deg,#c9a24a,#8a5a1a);border:none;color:#1a0f28;border-radius:6px;font-weight:600}
+  .pm-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+
+  /* NPC list */
+  .npc-item{display:flex;align-items:center;gap:8px;padding:6px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px;background:#100819}
+  .npc-item .sw{width:20px;height:20px;border-radius:50%;border:2px solid #fff;flex-shrink:0}
+  .npc-item .nm{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .npc-item button{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+  .npc-item button:hover{color:#ff9a8b}
+
+  /* Fog controls floating */
+  #fogCtl{position:absolute;top:14px;right:14px;background:var(--panel-solid);border:1px solid var(--line);padding:12px;border-radius:8px;z-index:5;font-size:11px;display:none;min-width:220px;max-width:260px;box-shadow:0 10px 30px -10px #000}
+  #fogCtl .fog-title{color:var(--gold2);font-family:"Cinzel",serif;font-size:12px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  #fogCtl .fog-hint{color:var(--muted);font-size:10px;margin-bottom:6px;line-height:1.4}
+  #fogChips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+  .fog-chip{display:flex;align-items:center;gap:6px;padding:5px 9px;background:#100819;border:1px solid var(--line);border-radius:14px;cursor:pointer;font-size:11px;transition:.15s;user-select:none}
+  .fog-chip:hover{border-color:var(--gold)}
+  .fog-chip.active{background:linear-gradient(180deg,#3a2560,#2a1745);border-color:var(--accent2);color:#fff;box-shadow:inset 0 0 8px rgba(180,137,255,.35)}
+  .fog-chip .dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.4);flex-shrink:0}
+  #fogCtl .fog-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px}
+  #fogCtl .fog-actions button{padding:6px;background:#100819;border:1px solid var(--line);color:var(--text);border-radius:5px;font-size:10px;cursor:pointer}
+  #fogCtl .fog-actions button:hover{border-color:var(--gold);color:var(--gold2)}
+  .fog-tool-btn{flex:1;padding:7px;background:#100819;border:1px solid var(--line);color:var(--text);border-radius:5px;font-size:11px;cursor:pointer;transition:.15s}
+  .fog-tool-btn:hover{border-color:var(--gold);color:var(--gold2)}
+  .fog-tool-btn.active{background:linear-gradient(180deg,#3a2560,#2a1745);border-color:var(--accent2);color:#fff;box-shadow:inset 0 0 8px rgba(180,137,255,.35)}
+  .fog-tool-btn.small{flex:0 0 auto;padding:7px 12px}
+
+  /* Кисть-курсор для fog */
+  #brushCursor{position:absolute;pointer-events:none;border:2px dashed var(--gold2);border-radius:50%;background:rgba(233,200,116,.08);display:none;z-index:20;transform:translate(-50%,-50%)}
+  #brushCursor.rect{border-radius:0}
+  #brushCursor.hide-mode{border-color:#ff9a8b;background:rgba(192,57,43,.15)}
+
+  /* Полоса зрения на токене */
+  .token .vision-ring{position:absolute;border:1px dashed rgba(201,162,74,.35);border-radius:50%;pointer-events:none;display:none}
+  .token.show-vision .vision-ring{display:block}
+
+  /* Music panel */
+  .music-track{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px;background:#100819;font-size:12px}
+  .music-track .title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .music-track button{background:transparent;border:none;color:var(--gold2);cursor:pointer}
+  #nowPlaying{padding:8px;border:1px dashed var(--line);border-radius:6px;font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+  #nowPlaying.playing{color:var(--gold2);border-color:var(--gold);border-style:solid}
+
+  /* Scrollbars */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:#0b0710}
+  ::-webkit-scrollbar-thumb{background:#2a1745;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#3a2560}
+
+  /* Notice */
+  #notice{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--panel-solid);border:1px solid var(--gold);color:var(--gold2);padding:10px 20px;border-radius:8px;font-size:13px;z-index:2000;display:none;box-shadow:0 10px 30px -10px #000}
+
+  /* Универсальные диалоги (замена prompt/confirm — они заблокированы в sandbox) */
+  #dlgBg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:3000;backdrop-filter:blur(6px)}
+  #dlgBg.show{display:flex}
+  #dlg{background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:24px;min-width:340px;max-width:480px;box-shadow:0 30px 60px -20px #000}
+  #dlg h3{color:var(--gold2);margin-bottom:12px;font-size:17px}
+  #dlg .body{color:var(--text);font-size:13px;line-height:1.5;margin-bottom:14px;white-space:pre-wrap}
+  #dlg .fields{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  #dlg .fields label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin-bottom:4px;display:block}
+  #dlg .fields input[type=text],#dlg .fields input[type=number],#dlg .fields input[type=color],#dlg .fields select,#dlg .fields textarea{width:100%;padding:9px;background:#0d0716;border:1px solid var(--line);color:var(--text);border-radius:6px;outline:none;font-family:inherit;font-size:13px}
+  #dlg .fields input:focus,#dlg .fields select:focus{border-color:var(--gold)}
+  #dlg .row{display:flex;gap:10px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<!-- ============ ГЛАВНОЕ МЕНЮ ============ -->
+<div id="menu">
+  <div class="runes"></div>
+  <h1>ВРАТА<br>СУДЬБЫ</h1>
+  <div class="sub">Онлайн стол для Dungeons &amp; Dragons</div>
+  <div class="menu-cards">
+    <div class="card" onclick="openPlayerModal()">
+      <div class="icon">🗡️</div>
+      <h2>ИГРОК</h2>
+      <p>Создай героя, брось кости и погрузись в приключение под покровом тумана.</p>
+      <button class="btn">Войти как игрок</button>
+    </div>
+    <div class="card" onclick="openMasterModal()">
+      <div class="icon">👑</div>
+      <h2>МАСТЕР</h2>
+      <p>Управляй миром: рисуй карты, расставляй NPC и веди рассказ.</p>
+      <button class="btn primary">Войти как мастер</button>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:20px;color:var(--muted);font-size:11px;letter-spacing:.2em">v1.0 · синхронизация между вкладками одного браузера</div>
+</div>
+
+<!-- ============ Модалка мастера ============ -->
+<div class="modal-bg" id="masterModal">
+  <div class="modal">
+    <h3>👑 Вход мастера</h3>
+    <label>Пароль</label>
+    <input type="password" id="masterPass" placeholder="Введите пароль" />
+    <div class="err" id="masterErr"></div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('masterModal')">Отмена</button>
+      <button class="btn primary" onclick="loginMaster()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Модалка игрока ============ -->
+<div class="modal-bg" id="playerModal">
+  <div class="modal">
+    <h3>🗡️ Создание героя</h3>
+    <label>Имя персонажа</label>
+    <input type="text" id="playerName" placeholder="Например, Арагорн" maxlength="20" />
+    <label>Цвет токена</label>
+    <input type="color" id="playerColor" value="#c9a24a" />
+    <label>Изображение персонажа (необязательно)</label>
+    <input type="file" id="playerAvatar" accept="image/*" style="color:var(--muted);font-size:11px" />
+    <div class="err" id="playerErr"></div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('playerModal')">Отмена</button>
+      <button class="btn primary" onclick="loginPlayer()">Войти в игру</button>
+    </div>
+  </div>
+</div>
+
+<div id="notice"></div>
+
+<!-- Универсальный диалог -->
+<div id="dlgBg"><div id="dlg"></div></div>
+
+<!-- ============ ОСНОВНОЙ ИНТЕРФЕЙС ============ -->
+<div id="app">
+  <div id="topbar">
+    <div class="brand">⚔ ВРАТА СУДЬБЫ</div>
+    <div class="who">Вы: <b id="whoName">—</b> <span id="whoRole"></span></div>
+    <div class="spacer"></div>
+    <div id="connBadge" style="font-size:11px;color:#7fd18a;margin-right:12px">🟡 подключение...</div>
+    <button class="tool-mini" onclick="switchRole()">🚪 Выйти</button>
+  </div>
+
+  <!-- Левая панель -->
+  <div id="leftpanel">
+    <div id="masterTools" style="display:none">
+      <div class="panel-title">Инструмент</div>
+      <div class="tool-row">
+        <button class="tool active" data-tool="select">✋ Выбор</button>
+        <button class="tool" data-tool="draw">✏️ Рисовать</button>
+        <button class="tool" data-tool="erase">🧽 Ластик</button>
+        <button class="tool" data-tool="shape">◻ Фигура</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">
+        Инструменты тумана — в панели <b style="color:var(--gold2)">справа сверху</b>
+      </div>
+
+      <div class="field">
+        <label>Цвет / Заливка</label>
+        <input type="color" id="drawColor" value="#e9c874" />
+      </div>
+      <div class="field">
+        <label>Толщина / Размер</label>
+        <input type="range" id="drawSize" min="2" max="60" value="6" />
+      </div>
+      <div class="field" id="shapeField" style="display:none">
+        <label>Тип фигуры</label>
+        <select id="shapeType">
+          <option value="rect">Прямоугольник</option>
+          <option value="circle">Круг</option>
+          <option value="line">Линия</option>
+        </select>
+      </div>
+
+      <div class="panel-title">Карта</div>
+      <div class="field">
+        <label>Размер клетки (px)</label>
+        <input type="number" id="gridSize" value="50" min="20" max="200" />
+      </div>
+      <button class="btn-block" onclick="document.getElementById('bgUpload').click()">🖼 Загрузить карту</button>
+      <input type="file" id="bgUpload" accept="image/*" style="display:none" />
+      <button class="btn-block" onclick="clearDrawing()">🗑 Очистить рисунок</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">Туман настраивается в панели <b style="color:var(--gold2)">справа сверху над доской</b> — индивидуально для каждого игрока.</div>
+
+      <div class="panel-title">NPC</div>
+      <button class="btn-block primary" onclick="addNpc()">+ Создать NPC</button>
+      <div id="npcList"></div>
+
+      <div class="panel-title">Музыка</div>
+      <button class="btn-block" onclick="document.getElementById('musicUpload').click()">🎵 Загрузить трек</button>
+      <input type="file" id="musicUpload" accept="audio/*" multiple style="display:none" />
+      <div id="musicList"></div>
+      <div id="nowPlaying">🔇 Тишина</div>
+      <div class="field">
+        <label>Громкость</label>
+        <input type="range" id="musicVol" min="0" max="100" value="60" />
+      </div>
+    </div>
+
+    <div id="playerTools" style="display:none">
+      <div class="panel-title">Ваш герой</div>
+      <div id="myHero" style="display:flex;align-items:center;gap:10px;padding:10px;background:#100819;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+        <div id="myHeroAvatar" style="width:44px;height:44px;border-radius:50%;border:3px solid;background-size:cover;background-position:center;flex-shrink:0"></div>
+        <div style="flex:1;overflow:hidden">
+          <div id="myHeroName" style="font-size:13px;color:var(--gold2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <div style="font-size:10px;color:var(--muted)">Тащите себя по карте</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Имя</label>
+        <input type="text" id="myName" maxlength="20" />
+      </div>
+      <div class="field">
+        <label>Цвет токена</label>
+        <input type="color" id="myColor" />
+      </div>
+      <div class="field">
+        <label>Размер токена: <span id="mySizeVal">50</span> px</label>
+        <input type="range" id="mySize" min="20" max="150" value="50" />
+      </div>
+      <button class="btn-block" onclick="document.getElementById('myAvatarUpload').click()">🖼 Сменить аватар</button>
+      <input type="file" id="myAvatarUpload" accept="image/*" style="display:none" />
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">
+        👁 Радиус зрения настраивает только мастер
+      </div>
+
+      <div class="panel-title">Подсказки</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        • Перетаскивайте токен мышью<br>
+        • Колесо мыши — масштаб<br>
+        • Средняя кнопка / пробел + перетаскивание — сдвиг<br>
+        • В чате: <code style="color:var(--gold2)">/r 1d20+5</code> — бросок<br>
+        • <code style="color:var(--gold2)">/w текст</code> — приватно мастеру
+      </div>
+    </div>
+  </div>
+
+  <!-- Доска -->
+  <div id="boardWrap">
+    <div id="boardScroll">
+      <div id="boardLayers">
+        <canvas id="bgCanvas"></canvas>
+        <canvas id="gridCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+        <canvas id="fogCanvas"></canvas>
+        <div id="tokensLayer"></div>
+      </div>
+      <div id="brushCursor"></div>
+    </div>
+    <div id="zoomCtl">
+      <button onclick="zoomBy(1.2)">+</button>
+      <button onclick="zoomBy(0.8)">−</button>
+      <button onclick="resetView()" title="Сброс вида">⊙</button>
+    </div>
+    <div id="fogCtl">
+      <div class="fog-title">🌫 Туман войны</div>
+      <div class="fog-hint">Выбери игроков и рисуй кистью — правки применятся только к ним</div>
+      <div id="fogChips"></div>
+
+      <div style="display:flex;gap:4px;margin:8px 0">
+        <button class="fog-tool-btn" data-tool="fog-reveal" title="Открыть кистью">☀ Открыть</button>
+        <button class="fog-tool-btn" data-tool="fog-hide" title="Скрыть кистью">🌫 Скрыть</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button class="fog-tool-btn small" data-shape="circle" title="Круглая кисть">●</button>
+        <button class="fog-tool-btn small" data-shape="rect" title="Прямоугольная область">▭</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
+        Размер кисти: <span id="fogBrushVal">80</span> px
+      </div>
+      <input type="range" id="fogBrush" min="20" max="500" value="80" step="10" style="width:100%;margin-bottom:6px" />
+
+      <div style="border-top:1px solid var(--line);margin:8px 0 6px;padding-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="dynVision" /> Динамическое зрение токенов
+        </label>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4">
+          Токены видят вокруг себя, чужие видны только если попали в свет
+        </div>
+      </div>
+
+      <div class="fog-actions">
+        <button onclick="selectAllFog(true)">Все</button>
+        <button onclick="selectAllFog(false)">Никого</button>
+        <button onclick="clearFog()">☀ Всё</button>
+        <button onclick="fillFog()">🌫 Всё</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Правая панель (чат) -->
+  <div id="rightpanel">
+    <div class="tabs">
+      <button class="active" data-tab="chat">💬 Чат</button>
+      <button data-tab="players">🧙 Игроки</button>
+    </div>
+    <div class="tab-content active" data-tab="chat">
+      <div id="chatMessages"></div>
+      <div id="chatInputWrap">
+        <div class="hints">
+          <b style="color:var(--gold2)">/r 1d20+3</b> — бросок · <b style="color:var(--gold2)">/w сообщение</b> — приватно мастеру
+        </div>
+        <label class="pm-toggle" id="pmToggleWrap" style="display:none">
+          <input type="checkbox" id="pmToggle"> писать приватно мастеру
+        </label>
+        <div id="chatInputRow">
+          <input type="text" id="chatInput" placeholder="Сообщение..." />
+          <button id="chatSend">▶</button>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" data-tab="players">
+      <div id="playersList" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   ВРАТА СУДЬБЫ — DnD онлайн доска
+   Синхронизация между вкладками одного браузера через BroadcastChannel
+   + localStorage для состояния (карта, туман, рисунки, NPC, музыка)
+   ===================================================================== */
+
+// ---------- Константы ----------
+const MASTER_PASSWORD = "Ничтожество";
+const STORE_KEY = "vrata_sudby_state_v1";
+const CHAN_NAME = "vrata_sudby_chan_v1";
+
+// ---------- Состояние ----------
+let role = null;         // "master" | "player"
+let me = null;           // {id, name, color, avatar, role}
+// При загрузке страницы всегда стартуем с чистого состояния — актуальное придёт с сервера
+let state = defaultState();
+
+function defaultState(){
+  return {
+    board:{ w:2000, h:1400, gridSize:50, bg:null }, // bg = dataURL
+    drawings:[],       // {type,color,size,points:[{x,y}]} | shapes
+    fog:{},            // {playerId: [{type:"fill"|"clear"} | {mode:"hide"|"reveal",shape:"circle"|"rect",...}]}
+    tokens:{},         // {tokenId: {id,type,name,color,avatar,x,y,size,ownerId,hp?,visionRadius?}}
+    players:{},        // {playerId: {id,name,color,avatar,online:ts}}
+    music:{ tracks:[], playingId:null, position:0, playing:false, startedAt:0, volume:0.6 },
+    chat:[],           // {id,from,fromId,text,type:"chat"|"roll"|"pm"|"system",to?,ts,rollDetails?}
+    settings:{ defaultVision:250, dynamicVision:true } // радиус зрения новых токенов; динамический fog-of-war
+  };
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return defaultState();
+    const s = JSON.parse(raw);
+    // merge defaults
+    const d = defaultState();
+    return Object.assign(d, s, {
+      board:Object.assign(d.board, s.board||{}),
+      music:Object.assign(d.music, s.music||{}),
+      settings:Object.assign(d.settings, s.settings||{})
+    });
+  }catch(e){ return defaultState(); }
+}
+function saveState(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed",e); }
+}
+
+// ---------- Broadcast ----------
+// Транспорт: WebSocket (если запущены с сервером) + BroadcastChannel (для локального открытия файла)
+const chan = ("BroadcastChannel" in window) ? new BroadcastChannel(CHAN_NAME) : null;
+if(chan){
+  chan.onmessage = (e)=> handleMessage(e.data);
+}
+
+let ws = null;
+let wsReady = false;
+let wsQueue = [];
+let wsReconnectDelay = 1000;
+
+function connectWS(){
+  // Пробуем подключиться к серверу, если страница загружена по http(s)
+  if(location.protocol !== "http:" && location.protocol !== "https:") return;
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${proto}//${location.host}/ws`;
+  try{ ws = new WebSocket(url); }
+  catch(e){ console.warn("WS init failed", e); scheduleReconnect(); return; }
+
+  ws.onopen = ()=>{
+    wsReady = true;
+    wsReconnectDelay = 1000;
+    updateConnBadge(true);
+    // Отправим накопленное
+    while(wsQueue.length){ try{ ws.send(wsQueue.shift()); }catch(e){} }
+    // Попросим актуальное состояние
+    try{ ws.send(JSON.stringify({type:"hello"})); }catch(e){}
+    // Если у нас уже есть роль (переподключение) — заявим о своём присутствии
+    if(me){
+      try{ ws.send(JSON.stringify({type:"presence", player: state.players[me.id]})); }catch(e){}
+    }
+  };
+  ws.onmessage = (e)=>{
+    try{ handleMessage(JSON.parse(e.data)); }catch(err){}
+  };
+  ws.onclose = ()=>{ wsReady=false; updateConnBadge(false); scheduleReconnect(); };
+  ws.onerror = ()=>{ try{ ws.close(); }catch(e){} };
+}
+function scheduleReconnect(){
+  setTimeout(connectWS, wsReconnectDelay);
+  wsReconnectDelay = Math.min(wsReconnectDelay * 1.7, 15000);
+}
+function updateConnBadge(online){
+  const el = document.getElementById("connBadge");
+  if(!el) return;
+  if(online){ el.textContent = "🟢 онлайн"; el.style.color="#7fd18a"; }
+  else { el.textContent = "🔴 офлайн"; el.style.color="#ff9a8b"; }
+}
+connectWS();
+
+// fallback через storage event (для случая, если сервер недоступен и работают несколько вкладок)
+window.addEventListener("storage", (e)=>{
+  if(e.key === STORE_KEY){
+    state = loadState();
+    renderAll();
+  }
+});
+
+function broadcast(msg){
+  const raw = JSON.stringify(msg);
+  // WS
+  if(ws && wsReady){ try{ ws.send(raw); }catch(e){} }
+  else if(ws){ wsQueue.push(raw); }
+  // BroadcastChannel (для локальных вкладок)
+  if(chan){ try{ chan.postMessage(msg); }catch(e){} }
+}
+
+function handleMessage(m){
+  if(!m || !m.type) return;
+  switch(m.type){
+    case "state-patch":
+      applyPatch(m.patch, false);
+      // Если пришло обновление музыки — попробуем сыграть pending-команду или подхватить текущую
+      if(m.patch && m.patch.music){
+        if(pendingMusicCmd){
+          const cmd = pendingMusicCmd;
+          pendingMusicCmd = null;
+          handleMusicCmd(cmd);
+        } else if(role !== "master" && state.music && state.music.playing && state.music.playingId){
+          const a = ensureAudio();
+          if(a.paused){
+            handleMusicCmd({action:"play", id: state.music.playingId, volume: state.music.volume});
+          }
+        }
+      }
+      renderAll();
+      break;
+    case "token-move":
+      // Живая позиция без полной перерисовки — дёшево и плавно
+      if(state.tokens[m.id]){
+        state.tokens[m.id].x = m.x;
+        state.tokens[m.id].y = m.y;
+        // Обновим DOM-элемент напрямую
+        const tel = tokensLayer.querySelector(`[data-id="${m.id}"]`);
+        const tt = state.tokens[m.id];
+        if(tel){
+          tel.style.left = (tt.x - tt.size/2)+"px";
+          tel.style.top  = (tt.y - tt.size/2)+"px";
+          // Если движется токен другого игрока — у нас-игрока пересчитаем видимость с задержкой
+          if(role === "player" && tt.ownerId !== me.id){
+            scheduleVisibilityRefresh();
+          }
+        } else if(role === "player"){
+          // Токена ещё нет в DOM — возможно попал в зону видимости, перерисуем
+          scheduleVisibilityRefresh();
+        }
+        // Живое обновление тумана если это МОЙ токен движется
+        if(role === "player" && tt.ownerId === me.id && state.settings && state.settings.dynamicVision){
+          drawFog();
+        }
+      }
+      break;
+    case "hello":
+      // Ответим полным состоянием, если мы мастер или самый старший (первый онлайн)
+      if(role==="master") broadcast({type:"full-state", state});
+      break;
+    case "full-state": {
+      // Сохраним свои данные ПЕРЕД тем как затереть state
+      const savedMyToken = me ? state.tokens?.[me.id] : null;
+      const savedMyPlayer = me ? state.players?.[me.id] : null;
+      const savedMyFog = (me && role==="player") ? state.fog?.[me.id] : null;
+
+      state = m.state || {};
+      if(!state.tokens) state.tokens = {};
+      if(!state.players) state.players = {};
+      if(!state.fog) state.fog = {};
+      if(!state.settings) state.settings = { defaultVision:250, dynamicVision:true };
+      if(!state.chat) state.chat = [];
+      if(!state.drawings) state.drawings = [];
+      if(!state.board) state.board = { w:2000, h:1400, gridSize:50, bg:null };
+      if(!state.music) state.music = { tracks:[], volume:0.6 };
+
+      // Восстановим себя, если сервер не знал о нас
+      if(me){
+        if(!state.tokens[me.id] && savedMyToken){ state.tokens[me.id] = savedMyToken; }
+        if(!state.players[me.id] && savedMyPlayer){ state.players[me.id] = savedMyPlayer; }
+        if(role==="player" && !state.fog[me.id]){
+          state.fog[me.id] = savedMyFog || [{type:"fill"}];
+        }
+        // Если всё-таки нашего токена нигде нет — создадим заново
+        if(role==="player" && !state.tokens[me.id]){
+          ensureMyPresence();
+        } else {
+          // Разошлём всем свои актуальные данные (сервер мог не знать)
+          applyPatch({tokens: state.tokens, players: state.players, fog: state.fog});
+          broadcast({type:"presence", player: state.players[me.id]});
+        }
+      }
+      invalidateFogCache();
+      // сброс кэша фона — вдруг карту заменили
+      _lastBgSrc = null;
+      bgImage = null;
+      saveState();
+      // Автоподхват музыки, если мастер уже что-то играет
+      if(pendingMusicCmd){
+        const cmd = pendingMusicCmd;
+        pendingMusicCmd = null;
+        handleMusicCmd(cmd);
+      } else if(role !== "master" && state.music && state.music.playing && state.music.playingId){
+        handleMusicCmd({action:"play", id: state.music.playingId, volume: state.music.volume});
+      }
+      renderAll();
+      break;
+    }
+    case "chat":
+      state.chat.push(m.msg);
+      if(state.chat.length>200) state.chat = state.chat.slice(-200);
+      saveState();
+      renderChat();
+      break;
+    case "music-cmd":
+      handleMusicCmd(m.cmd);
+      break;
+    case "presence":
+      state.players[m.player.id] = Object.assign(state.players[m.player.id]||{}, m.player);
+      saveState();
+      renderPlayers();
+      renderFogPlayerSelect();
+      break;
+    case "server-empty":
+      // Сервер сообщил, что состояния нет (все ушли, всё сброшено)
+      // Если мы уже в игре — не откатываем себя, просто отправим свои данные заново
+      // Если мы только что подключились — используем чистое дефолтное состояние
+      console.log("[server-empty] сервер пустой");
+      if(me){
+        // Мы в игре — переотправим себя (сервер запишет)
+        ensureMyPresence();
+      } else {
+        // Не в игре — гарантируем чистый state
+        state = defaultState();
+        saveState();
+      }
+      break;
+    case "kick":
+      // Если выгнали именно нас — выкидываем в меню
+      if(me && m.playerId === me.id){
+        alertKicked(m.by);
+      } else {
+        // Иначе просто убираем игрока из локальных данных
+        if(state.players[m.playerId]) delete state.players[m.playerId];
+        if(state.tokens[m.playerId]) delete state.tokens[m.playerId];
+        if(state.fog[m.playerId]) delete state.fog[m.playerId];
+        invalidateFogCache();
+        saveState();
+        renderAll();
+      }
+      break;
+  }
+}
+
+async function alertKicked(byName){
+  // Останавливаем музыку и уходим в меню
+  if(audioEl){ try{ audioEl.pause(); }catch(e){} }
+  role = null; me = null;
+  selectedFogPlayers.clear();
+  bgImage = null;
+  try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+  state = defaultState();
+  document.getElementById("app").classList.remove("show");
+  document.getElementById("masterTools").style.display="none";
+  document.getElementById("playerTools").style.display="none";
+  document.getElementById("fogCtl").style.display="none";
+  document.getElementById("pmToggleWrap").style.display="none";
+  document.getElementById("masterPass").value="";
+  document.getElementById("masterErr").textContent="";
+  document.getElementById("playerName").value="";
+  document.getElementById("playerErr").textContent="";
+  document.getElementById("playerAvatar").value="";
+  document.getElementById("menu").style.display="flex";
+  await dlgAlert("🚫 Вы были выгнаны", `Мастер ${byName||""} выгнал вас из игры.`);
+}
+
+function applyPatch(patch, doBroadcast=true){
+  // Ключи, которые мы всегда полностью ЗАМЕНЯЕМ, а не мёржим (иначе удалённые элементы не исчезают у других)
+  const REPLACE_KEYS = new Set(["tokens","players","fog","drawings","board","music","settings","chat"]);
+  for(const k of Object.keys(patch)){
+    if(patch[k]===null) delete state[k];
+    else if(REPLACE_KEYS.has(k)) state[k] = patch[k]; // ← полная замена
+    else if(Array.isArray(patch[k])) state[k] = patch[k];
+    else if(typeof patch[k]==="object" && state[k] && typeof state[k]==="object" && !Array.isArray(state[k])){
+      state[k] = Object.assign({}, state[k], patch[k]);
+    } else state[k] = patch[k];
+  }
+  // Любое изменение tokens/fog/settings инвалидирует кэш тумана
+  if(patch.tokens || patch.fog || patch.settings) invalidateFogCache();
+  saveState();
+  if(doBroadcast) broadcast({type:"state-patch", patch});
+}
+
+// ---------- Меню / логин ----------
+function openMasterModal(){ document.getElementById("masterModal").classList.add("show"); document.getElementById("masterPass").focus(); }
+function openPlayerModal(){ document.getElementById("playerModal").classList.add("show"); document.getElementById("playerName").focus(); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+
+function loginMaster(){
+  const pass = document.getElementById("masterPass").value;
+  if(pass !== MASTER_PASSWORD){
+    document.getElementById("masterErr").textContent = "Неверный пароль. Ты не достоин.";
+    return;
+  }
+  role = "master";
+  me = { id:"master", name:"Мастер", color:"#c9a24a", role:"master" };
+  enterApp();
+}
+
+function loginPlayer(){
+  const name = document.getElementById("playerName").value.trim();
+  const color = document.getElementById("playerColor").value;
+  if(!name){ document.getElementById("playerErr").textContent = "Введите имя героя"; return; }
+  const file = document.getElementById("playerAvatar").files[0];
+  const finish = (avatar)=>{
+    role = "player";
+    me = { id:"p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), name, color, avatar, role:"player" };
+    enterApp();
+  };
+  if(file){
+    const r = new FileReader();
+    r.onload = ()=> finish(r.result);
+    r.readAsDataURL(file);
+  } else finish(null);
+}
+
+function enterApp(){
+  document.getElementById("menu").style.display="none";
+  document.querySelectorAll(".modal-bg").forEach(m=>m.classList.remove("show"));
+  document.getElementById("app").classList.add("show");
+  document.getElementById("whoName").textContent = me.name;
+  document.getElementById("whoRole").textContent = role==="master" ? " · 👑 Мастер" : " · 🗡️ Игрок";
+
+  if(role==="master"){
+    document.getElementById("masterTools").style.display="block";
+    document.getElementById("fogCtl").style.display="block";
+  } else {
+    document.getElementById("playerTools").style.display="block";
+    document.getElementById("pmToggleWrap").style.display="flex";
+
+    // Обновим hero panel
+    document.getElementById("myHeroName").textContent = me.name;
+    const av = document.getElementById("myHeroAvatar");
+    av.style.borderColor = me.color;
+    if(me.avatar) av.style.backgroundImage = `url(${me.avatar})`;
+    else av.style.background = me.color;
+  }
+
+  // Регистрируем присутствие И СРАЗУ создаём токен, чтобы игрок его увидел без задержки
+  ensureMyPresence();
+
+  initBoard();
+  setupUI();
+  renderAll();
+  systemMessage(`${me.name} вошёл в игру`);
+
+  // Резервная гарантия: если что-то затёрло токен — восстановим и разошлём заново
+  // Проверяем каждые 500мс первые 5 секунд после входа
+  let checks = 0;
+  const guardInterval = setInterval(()=>{
+    checks++;
+    if(!me || checks > 10){ clearInterval(guardInterval); return; }
+    if(role === "player" && !state.tokens[me.id]){
+      console.log("[guard] токен пропал, восстанавливаю");
+      ensureMyPresence();
+      renderAll();
+    }
+  }, 500);
+
+  // Heartbeat: каждые 10 секунд шлём своё присутствие, чтобы нас не считали офлайн
+  setInterval(()=>{
+    if(!me) return;
+    if(state.players[me.id]){
+      state.players[me.id].online = Date.now();
+      broadcast({type:"presence", player: state.players[me.id]});
+    }
+    // Перерисуем список игроков — чтобы отметить кто офлайн
+    renderPlayers();
+    renderFogPlayerSelect();
+  }, 10000);
+}
+
+// Считаем игрока онлайн, если он «пинговал» за последние 30 секунд
+const ONLINE_TIMEOUT = 30000;
+function isPlayerOnline(p){
+  return p && p.online && (Date.now() - p.online < ONLINE_TIMEOUT);
+}
+
+// Троттлинг перерисовки токенов при получении token-move от других (для игрока — динамическая видимость)
+let _visRefreshTimer = null;
+function scheduleVisibilityRefresh(){
+  if(_visRefreshTimer) return;
+  _visRefreshTimer = setTimeout(()=>{
+    _visRefreshTimer = null;
+    if(role === "player"){
+      invalidateFogCache();
+      renderTokens();
+    }
+  }, 60);
+}
+
+// Гарантирует, что у нас есть токен, запись игрока и туман, и рассылает это всем.
+function ensureMyPresence(){
+  if(!me) return;
+  if(role === "player"){
+    if(!state.tokens[me.id]){
+      state.tokens[me.id] = {
+        id: me.id, type:"player", name: me.name, color: me.color, avatar: me.avatar,
+        x: 100 + Math.random()*300, y: 100 + Math.random()*300, size: 50, ownerId: me.id,
+        visionRadius: (state.settings && state.settings.defaultVision) || 250
+      };
+    } else {
+      state.tokens[me.id].color = me.color;
+      state.tokens[me.id].avatar = me.avatar;
+      state.tokens[me.id].name = me.name;
+      if(state.tokens[me.id].visionRadius == null){
+        state.tokens[me.id].visionRadius = (state.settings && state.settings.defaultVision) || 250;
+      }
+    }
+    if(!state.fog[me.id]) state.fog[me.id] = [{type:"fill"}];
+  }
+  state.players[me.id] = { id:me.id, name:me.name, color:me.color, avatar:me.avatar, role, online: Date.now() };
+  saveState();
+  // Отправляем patch со своими данными + presence, чтобы все узнали
+  broadcast({type:"state-patch", patch:{tokens: state.tokens, players: state.players, fog: state.fog}});
+  broadcast({type:"presence", player: state.players[me.id]});
+  // Если мы мастер — синхронизируем ПОЛНОЕ состояние (карту, музыку, настройки)
+  if(role === "master"){
+    broadcast({type:"full-state", state});
+  }
+}
+
+function systemMessage(text){
+  const msg = { id:"m_"+Date.now()+"_"+Math.random(), type:"system", text, ts:Date.now() };
+  state.chat.push(msg);
+  if(state.chat.length>200) state.chat = state.chat.slice(-200);
+  saveState();
+  broadcast({type:"chat", msg});
+  renderChat();
+}
+
+// ---------- Доска ----------
+const bgCanvas = document.getElementById("bgCanvas");
+const gridCanvas = document.getElementById("gridCanvas");
+const drawCanvas = document.getElementById("drawCanvas");
+const fogCanvas = document.getElementById("fogCanvas");
+const tokensLayer = document.getElementById("tokensLayer");
+const boardLayers = document.getElementById("boardLayers");
+const boardScroll = document.getElementById("boardScroll");
+const boardWrap = document.getElementById("boardWrap");
+// Скрываем кисть-курсор при выходе с доски
+document.addEventListener("mouseleave", ()=>{ const b=document.getElementById("brushCursor"); if(b) b.style.display="none"; });
+
+let view = { zoom:1, panX:0, panY:0 };
+let bgImage = null;
+
+function initBoard(){
+  resizeBoard();
+  if(state.board.bg){
+    const img = new Image();
+    img.onload = ()=>{ bgImage = img; drawBackground(); };
+    img.src = state.board.bg;
+  }
+  drawGrid();
+  drawDrawings();
+  drawFog();
+  renderTokens();
+  applyTransform();
+}
+
+function resizeBoard(){
+  const w = state.board.w, h = state.board.h;
+  boardLayers.style.width = w+"px";
+  boardLayers.style.height = h+"px";
+  for(const c of [bgCanvas, gridCanvas, drawCanvas, fogCanvas]){
+    c.width = w; c.height = h;
+    c.style.width = w+"px"; c.style.height = h+"px";
+  }
+  tokensLayer.style.width = w+"px"; tokensLayer.style.height = h+"px";
+}
+
+function drawBackground(){
+  const ctx = bgCanvas.getContext("2d");
+  ctx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  ctx.fillStyle = "#0d0716";
+  ctx.fillRect(0,0,bgCanvas.width,bgCanvas.height);
+  if(bgImage){
+    // fit contain
+    const iw=bgImage.width, ih=bgImage.height, cw=bgCanvas.width, ch=bgCanvas.height;
+    const s = Math.min(cw/iw, ch/ih);
+    const dw = iw*s, dh = ih*s;
+    const dx=(cw-dw)/2, dy=(ch-dh)/2;
+    ctx.drawImage(bgImage, dx, dy, dw, dh);
+  }
+}
+
+function drawGrid(){
+  const ctx = gridCanvas.getContext("2d");
+  ctx.clearRect(0,0,gridCanvas.width,gridCanvas.height);
+  const g = state.board.gridSize || 50;
+  ctx.strokeStyle = "rgba(201,162,74,.18)";
+  ctx.lineWidth = 1;
+  for(let x=0;x<=gridCanvas.width;x+=g){
+    ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,gridCanvas.height); ctx.stroke();
+  }
+  for(let y=0;y<=gridCanvas.height;y+=g){
+    ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(gridCanvas.width,y+.5); ctx.stroke();
+  }
+}
+
+function drawDrawings(){
+  const ctx = drawCanvas.getContext("2d");
+  ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  for(const d of state.drawings){
+    if(d.type==="stroke"){
+      ctx.strokeStyle = d.color; ctx.lineWidth = d.size;
+      ctx.lineCap="round"; ctx.lineJoin="round";
+      ctx.beginPath();
+      d.points.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+      ctx.stroke();
+    } else if(d.type==="shape"){
+      ctx.strokeStyle = d.color; ctx.fillStyle = d.color+"55"; ctx.lineWidth = d.size;
+      if(d.shape==="rect"){
+        ctx.fillRect(d.x,d.y,d.w,d.h); ctx.strokeRect(d.x,d.y,d.w,d.h);
+      } else if(d.shape==="circle"){
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      } else if(d.shape==="line"){
+        ctx.beginPath(); ctx.moveTo(d.x1,d.y1); ctx.lineTo(d.x2,d.y2); ctx.stroke();
+      }
+    }
+  }
+}
+
+// Строит canvas тумана для конкретного игрока (или null для мастера)
+// Возвращает готовый canvas, где непрозрачные пиксели = скрыто.
+function buildFogCanvas(playerId){
+  const cv = document.createElement("canvas");
+  cv.width = fogCanvas.width; cv.height = fogCanvas.height;
+  const ctx = cv.getContext("2d");
+  const fogList = state.fog[playerId] || [{type:"fill"}];
+  ctx.fillStyle = "rgba(6,3,12,1)";
+  for(const item of fogList){
+    if(item.type==="fill"){
+      ctx.fillRect(0,0,cv.width,cv.height);
+    } else if(item.type==="clear"){
+      ctx.clearRect(0,0,cv.width,cv.height);
+    } else if(item.mode==="hide"){
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      if(item.shape==="rect"){
+        ctx.fillRect(item.x, item.y, item.w, item.h);
+      } else {
+        ctx.beginPath(); ctx.arc(item.x, item.y, item.r, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    } else if(item.mode==="reveal"){
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      if(item.shape==="rect"){
+        ctx.fillRect(item.x, item.y, item.w, item.h);
+      } else {
+        ctx.beginPath(); ctx.arc(item.x, item.y, item.r, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // Динамическое зрение: вычитаем круги вокруг токенов игрока
+  if(state.settings && state.settings.dynamicVision){
+    // Игрок видит через свои токены (owned) + через персонажей своих союзников? — только свои токены
+    const myTokens = Object.values(state.tokens).filter(t=>{
+      if(t.type==="player" && t.ownerId===playerId) return true;
+      return false;
+    });
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    for(const t of myTokens){
+      const r = (t.visionRadius!=null ? t.visionRadius : (state.settings.defaultVision||250));
+      if(r > 0){
+        // мягкий градиент по краю
+        const grad = ctx.createRadialGradient(t.x, t.y, Math.max(0, r-30), t.x, t.y, r);
+        grad.addColorStop(0, "rgba(0,0,0,1)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI*2); ctx.fill();
+      }
+      // Всегда виден сам токен вблизи
+      ctx.beginPath(); ctx.arc(t.x, t.y, Math.max(t.size, 20), 0, Math.PI*2);
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  return cv;
+}
+
+// Проверяет, виден ли токен t для игрока pid, учитывая туман
+function isTokenVisibleFor(t, pid){
+  // Свой токен — всегда виден
+  if(t.ownerId === pid) return true;
+  // Есть ли туман у игрока? Если нет данных — считаем всё скрытым (по-умолчанию fill)
+  const fogList = state.fog[pid];
+  if(!fogList) return false;
+
+  // Проверим статичный туман: есть ли открытая область под точкой токена
+  // Сэмплируем canvas тумана в точке токена
+  const cv = _fogCanvasCache[pid];
+  if(!cv) return false;
+  const ctx = cv.getContext("2d");
+  const x = Math.max(0, Math.min(cv.width-1, Math.round(t.x)));
+  const y = Math.max(0, Math.min(cv.height-1, Math.round(t.y)));
+  try{
+    const px = ctx.getImageData(x, y, 1, 1).data;
+    // Если альфа < 128 — точка не скрыта туманом
+    return px[3] < 128;
+  }catch(e){ return false; }
+}
+
+let _fogCanvasCache = {}; // playerId -> canvas
+function invalidateFogCache(){ _fogCanvasCache = {}; }
+
+function drawFog(){
+  const ctx = fogCanvas.getContext("2d");
+  ctx.clearRect(0,0,fogCanvas.width,fogCanvas.height);
+  if(role==="master") return; // мастер не видит тумана
+  const cv = buildFogCanvas(me.id);
+  _fogCanvasCache[me.id] = cv;
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(cv, 0, 0);
+  ctx.globalAlpha = 1;
+}
+
+function renderTokens(){
+  tokensLayer.innerHTML="";
+  // Для игрока — сначала пересобираем кэш тумана, чтобы правильно проверять видимость
+  if(role==="player"){ _fogCanvasCache[me.id] = buildFogCanvas(me.id); }
+
+  for(const id of Object.keys(state.tokens)){
+    const t = state.tokens[id];
+    // NPC никогда не имеют зрения — принудительно
+    if(t.type === "npc" && t.visionRadius) t.visionRadius = 0;
+
+    // Токены офлайн-игроков не показываем (кроме своего)
+    if(t.type === "player"){
+      const owner = state.players[t.ownerId];
+      const isMine = me && t.ownerId === me.id;
+      if(!isMine && (!owner || !isPlayerOnline(owner))) continue;
+    }
+
+    // Проверка видимости для игрока
+    if(role==="player"){
+      if(!isTokenVisibleFor(t, me.id)) continue;
+    }
+
+    const el = document.createElement("div");
+    el.className = "token" + (t.type==="npc"?" npc":"") + (t.hp?" has-hp":"");
+    if(role==="master" && state.settings && state.settings.dynamicVision && t.visionRadius>0){
+      el.classList.add("show-vision");
+    }
+    el.style.width = t.size+"px";
+    el.style.height = t.size+"px";
+    el.style.left = (t.x - t.size/2)+"px";
+    el.style.top = (t.y - t.size/2)+"px";
+    el.style.borderColor = t.color;
+    el.dataset.id = t.id;
+    const av = document.createElement("div"); av.className="avatar";
+    if(t.avatar) av.style.backgroundImage = `url(${t.avatar})`;
+    else av.style.background = t.color;
+    el.appendChild(av);
+    const nm = document.createElement("div"); nm.className="name-tag"; nm.textContent = t.name;
+    el.appendChild(nm);
+    if(t.hp){
+      const hp = document.createElement("div"); hp.className="hp"; hp.textContent = "❤ "+t.hp;
+      el.appendChild(hp);
+    }
+    // Кольцо зрения (мастер видит)
+    if(role==="master" && t.visionRadius>0){
+      const ring = document.createElement("div");
+      ring.className = "vision-ring";
+      const r = t.visionRadius;
+      ring.style.width = (r*2)+"px";
+      ring.style.height = (r*2)+"px";
+      ring.style.left = (t.size/2 - r)+"px";
+      ring.style.top = (t.size/2 - r)+"px";
+      el.appendChild(ring);
+    }
+    tokensLayer.appendChild(el);
+    setupTokenDrag(el, t);
+  }
+}
+
+// ---------- Drag токенов ----------
+let lastMoveBcast = 0;
+function setupTokenDrag(el, t){
+  const canMove = (role==="master") || (t.ownerId===me.id);
+  if(!canMove){ el.style.cursor="default"; return; }
+  let sx,sy, ox,oy, dragging=false;
+  el.addEventListener("pointerdown",(e)=>{
+    if(e.button!==0) return;
+    if(currentTool!=="select" && role==="master") return;
+    e.stopPropagation();
+    dragging=true;
+    el.classList.add("dragging");
+    el.setPointerCapture(e.pointerId);
+    sx=e.clientX; sy=e.clientY; ox=t.x; oy=t.y;
+  });
+  el.addEventListener("pointermove",(e)=>{
+    if(!dragging) return;
+    const dx=(e.clientX-sx)/view.zoom, dy=(e.clientY-sy)/view.zoom;
+    t.x = ox+dx; t.y = oy+dy;
+    el.style.left = (t.x - t.size/2)+"px";
+    el.style.top  = (t.y - t.size/2)+"px";
+    // Живой broadcast: не чаще 30 раз в секунду
+    const now = Date.now();
+    if(now - lastMoveBcast > 33){
+      lastMoveBcast = now;
+      state.tokens[t.id] = t;
+      broadcast({type:"token-move", id:t.id, x:t.x, y:t.y});
+    }
+    // Живое обновление тумана и видимости токенов при движении своего токена
+    if(role==="player" && t.ownerId===me.id && state.settings && state.settings.dynamicVision){
+      drawFog();
+    }
+  });
+  el.addEventListener("pointerup",(e)=>{
+    if(!dragging) return;
+    dragging=false;
+    el.classList.remove("dragging");
+    state.tokens[t.id] = t;
+    // Финальный полноценный патч (сохранит на сервере окончательную позицию)
+    applyPatch({tokens: state.tokens});
+    // После перемещения — пересчитаем видимость других токенов
+    if(role==="player" && t.ownerId===me.id){ renderTokens(); }
+  });
+  el.addEventListener("pointercancel",()=>{ dragging=false; el.classList.remove("dragging"); });
+
+  // ПКМ на токене (мастер) — редактировать/удалить
+  if(role==="master"){
+    el.addEventListener("contextmenu",(e)=>{
+      e.preventDefault();
+      openTokenMenu(t);
+    });
+  }
+}
+
+async function openTokenMenu(t){
+  const menuItems = [
+    {label:"✏ Редактировать", value:"edit"},
+    {label:"❤ Установить HP", value:"hp"},
+    {label:"📏 Изменить размер", value:"size"}
+  ];
+  // Радиус зрения — только для токенов игроков
+  if(t.type === "player"){
+    menuItems.push({label:"👁 Радиус зрения", value:"vision"});
+  }
+  menuItems.push({label:"🗑 Удалить", value:"del", danger:true});
+  const action = await dlgMenu(`Токен: ${t.name}`, menuItems);
+  if(!action) return;
+  if(action==="edit"){
+    const r = await dlgPrompt("Редактирование токена", [
+      {name:"name", label:"Имя", type:"text", value:t.name},
+      {name:"color", label:"Цвет", type:"color", value:t.color}
+    ]);
+    if(r){ t.name = r.name||t.name; t.color = r.color||t.color; state.tokens[t.id]=t; applyPatch({tokens:state.tokens}); renderTokens(); renderNpcList(); }
+  } else if(action==="hp"){
+    const r = await dlgPrompt("HP", [{name:"hp", label:"HP (пусто чтобы убрать)", type:"text", value:t.hp||""}]);
+    if(r){ t.hp = r.hp || null; state.tokens[t.id]=t; applyPatch({tokens:state.tokens}); renderTokens(); }
+  } else if(action==="size"){
+    const r = await dlgPrompt("Размер токена", [{name:"size", label:"px", type:"number", value:t.size}]);
+    if(r){ t.size = parseInt(r.size)||50; state.tokens[t.id]=t; applyPatch({tokens:state.tokens}); renderTokens(); }
+  } else if(action==="vision"){
+    const r = await dlgPrompt(`👁 Радиус зрения — ${t.name}`, [
+      {name:"vision", label:"Радиус в пикселях (0 = слепой)", type:"number", value:t.visionRadius||0}
+    ]);
+    if(r){
+      t.visionRadius = Math.max(0, parseInt(r.vision)||0);
+      state.tokens[t.id]=t;
+      invalidateFogCache();
+      applyPatch({tokens:state.tokens});
+      renderTokens();
+      showNotice(`Зрение ${t.name}: ${t.visionRadius} px`);
+    }
+  } else if(action==="del"){
+    const ok = await dlgConfirm("Удалить токен?", `Удалить "${t.name}" без возможности восстановления?`);
+    if(ok){ delete state.tokens[t.id]; applyPatch({tokens:state.tokens}); renderTokens(); renderNpcList(); }
+  }
+}
+
+// ---------- Инструменты и рисование ----------
+let currentTool = "select";
+let drawing = false;
+let currentStroke = null;
+let shapeStart = null;
+let fogRectStart = null;
+let fogBrushShape = "circle"; // "circle" | "rect"
+
+function setTool(name){
+  currentTool = name;
+  document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("active", b.dataset.tool===name));
+  // fog-кнопки в правой панели тоже подсвечиваем
+  document.querySelectorAll(".fog-tool-btn[data-tool]").forEach(b=>b.classList.toggle("active", b.dataset.tool===name));
+  const sf = document.getElementById("shapeField");
+  if(sf) sf.style.display = (name==="shape")?"block":"none";
+  boardScroll.style.cursor = (name==="select")?"default":"crosshair";
+  // прячем кисть-курсор если ушли с fog
+  if(name!=="fog-hide" && name!=="fog-reveal"){
+    const b = document.getElementById("brushCursor"); if(b) b.style.display="none";
+  }
+}
+
+function boardCoords(e){
+  const rect = boardScroll.getBoundingClientRect();
+  const x = (e.clientX - rect.left - view.panX) / view.zoom;
+  const y = (e.clientY - rect.top - view.panY) / view.zoom;
+  return {x,y};
+}
+
+boardScroll.addEventListener("pointerdown",(e)=>{
+  if(e.target.closest(".token")) return;
+  if(e.button===1 || spaceHeld){ startPan(e); return; }
+  if(role!=="master") return;
+  if(currentTool==="select") return;
+
+  const p = boardCoords(e);
+  const color = document.getElementById("drawColor").value;
+  const size = parseInt(document.getElementById("drawSize").value);
+
+  if(currentTool==="draw"){
+    drawing=true;
+    currentStroke = {type:"stroke", color, size, points:[p]};
+    boardScroll.setPointerCapture(e.pointerId);
+  } else if(currentTool==="erase"){
+    // удаляем ближайший stroke/shape
+    eraseAt(p, size);
+  } else if(currentTool==="shape"){
+    shapeStart = p;
+    boardScroll.setPointerCapture(e.pointerId);
+  } else if(currentTool==="fog-hide" || currentTool==="fog-reveal"){
+    const fogSize = parseInt(document.getElementById("fogBrush").value)||80;
+    if(fogBrushShape==="rect"){
+      fogRectStart = p;
+    } else {
+      drawing = true;
+      applyFogBrush(p, fogSize, currentTool==="fog-hide"?"hide":"reveal");
+    }
+    boardScroll.setPointerCapture(e.pointerId);
+  }
+});
+
+boardScroll.addEventListener("pointermove",(e)=>{
+  // Кисть-курсор для fog
+  if(role==="master" && (currentTool==="fog-hide"||currentTool==="fog-reveal")){
+    const rect = boardWrap.getBoundingClientRect();
+    showBrushCursor(e.clientX-rect.left, e.clientY-rect.top);
+  }
+  if(panning){ movePan(e); return; }
+  if(!drawing && !shapeStart && !fogRectStart) return;
+  const p = boardCoords(e);
+  const color = document.getElementById("drawColor").value;
+  const size = parseInt(document.getElementById("drawSize").value);
+
+  if(currentTool==="draw" && drawing){
+    currentStroke.points.push(p);
+    // live preview
+    const ctx = drawCanvas.getContext("2d");
+    ctx.strokeStyle = color; ctx.lineWidth = size; ctx.lineCap="round"; ctx.lineJoin="round";
+    const pts = currentStroke.points;
+    ctx.beginPath();
+    ctx.moveTo(pts[pts.length-2].x, pts[pts.length-2].y);
+    ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+    ctx.stroke();
+  } else if(currentTool==="shape" && shapeStart){
+    // preview: перерисуем всё + фигуру
+    drawDrawings();
+    drawShapePreview(shapeStart, p, color, size);
+  } else if((currentTool==="fog-hide"||currentTool==="fog-reveal") && drawing){
+    const fogSize = parseInt(document.getElementById("fogBrush").value)||80;
+    applyFogBrush(p, fogSize, currentTool==="fog-hide"?"hide":"reveal");
+  } else if((currentTool==="fog-hide"||currentTool==="fog-reveal") && fogRectStart){
+    // preview rect area на canvas тумана (только визуально)
+    drawFog();
+    const ctx = fogCanvas.getContext("2d");
+    ctx.save();
+    ctx.strokeStyle = currentTool==="fog-hide" ? "#ff9a8b" : "#e9c874";
+    ctx.setLineDash([6,6]); ctx.lineWidth=2;
+    ctx.strokeRect(Math.min(fogRectStart.x,p.x), Math.min(fogRectStart.y,p.y),
+                   Math.abs(p.x-fogRectStart.x), Math.abs(p.y-fogRectStart.y));
+    ctx.restore();
+  }
+});
+
+boardScroll.addEventListener("pointerup",(e)=>{
+  if(panning){ endPan(e); return; }
+  const p = boardCoords(e);
+  const color = document.getElementById("drawColor").value;
+  const size = parseInt(document.getElementById("drawSize").value);
+
+  if(currentTool==="draw" && drawing){
+    drawing=false;
+    if(currentStroke.points.length>1){
+      state.drawings.push(currentStroke);
+      applyPatch({drawings: state.drawings});
+    }
+    currentStroke=null;
+  } else if(currentTool==="shape" && shapeStart){
+    const shapeType = document.getElementById("shapeType").value;
+    const s = shapeStart, e2 = p;
+    let obj;
+    if(shapeType==="rect"){
+      obj = {type:"shape", shape:"rect", color, size, x:Math.min(s.x,e2.x), y:Math.min(s.y,e2.y), w:Math.abs(e2.x-s.x), h:Math.abs(e2.y-s.y)};
+    } else if(shapeType==="circle"){
+      const r = Math.hypot(e2.x-s.x, e2.y-s.y);
+      obj = {type:"shape", shape:"circle", color, size, x:s.x, y:s.y, r};
+    } else {
+      obj = {type:"shape", shape:"line", color, size, x1:s.x, y1:s.y, x2:e2.x, y2:e2.y};
+    }
+    state.drawings.push(obj);
+    applyPatch({drawings: state.drawings});
+    shapeStart=null;
+  } else if((currentTool==="fog-hide"||currentTool==="fog-reveal") && fogRectStart){
+    // применяем прямоугольник
+    const s = fogRectStart;
+    const rect = {x:Math.min(s.x,p.x), y:Math.min(s.y,p.y), w:Math.abs(p.x-s.x), h:Math.abs(p.y-s.y)};
+    if(rect.w>4 && rect.h>4){
+      applyFogBrush(null, 0, currentTool==="fog-hide"?"hide":"reveal", rect);
+    }
+    fogRectStart = null;
+    applyPatch({fog: state.fog});
+  } else if((currentTool==="fog-hide"||currentTool==="fog-reveal") && drawing){
+    drawing=false;
+    // фог уже добавляли в move, синхронизируем
+    applyPatch({fog: state.fog});
+  }
+});
+
+function drawShapePreview(s, e, color, size){
+  const ctx = drawCanvas.getContext("2d");
+  ctx.strokeStyle = color; ctx.fillStyle=color+"55"; ctx.lineWidth=size;
+  const shapeType = document.getElementById("shapeType").value;
+  if(shapeType==="rect"){
+    const x=Math.min(s.x,e.x), y=Math.min(s.y,e.y), w=Math.abs(e.x-s.x), h=Math.abs(e.y-s.y);
+    ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+  } else if(shapeType==="circle"){
+    const r=Math.hypot(e.x-s.x,e.y-s.y);
+    ctx.beginPath(); ctx.arc(s.x,s.y,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(e.x,e.y); ctx.stroke();
+  }
+}
+
+function eraseAt(p, size){
+  const before = state.drawings.length;
+  state.drawings = state.drawings.filter(d=>{
+    if(d.type==="stroke"){
+      return !d.points.some(pt=>Math.hypot(pt.x-p.x, pt.y-p.y) < size);
+    } else if(d.type==="shape"){
+      if(d.shape==="rect"){
+        return !(p.x>=d.x-size && p.x<=d.x+d.w+size && p.y>=d.y-size && p.y<=d.y+d.h+size);
+      } else if(d.shape==="circle"){
+        return Math.hypot(p.x-d.x,p.y-d.y) > d.r+size;
+      } else {
+        return true;
+      }
+    }
+    return true;
+  });
+  if(state.drawings.length!==before){
+    drawDrawings();
+    applyPatch({drawings: state.drawings});
+  }
+}
+
+async function clearDrawing(){
+  const ok = await dlgConfirm("Очистить рисунок", "Стереть все нарисованные линии и фигуры?");
+  if(!ok) return;
+  state.drawings = [];
+  drawDrawings();
+  applyPatch({drawings: state.drawings});
+}
+
+// ---------- Туман (индивидуальный для каждого игрока) ----------
+let selectedFogPlayers = new Set(); // id игроков, к которым применяются правки
+
+function getFogTargets(){
+  // берём только реально существующих игроков
+  return Array.from(selectedFogPlayers).filter(id => state.players[id] && state.players[id].role==="player");
+}
+
+function applyFogBrush(p, size, mode, extra){
+  const targets = getFogTargets();
+  if(targets.length===0){ showNotice("Выберите игрока в панели тумана справа сверху"); return; }
+  const shape = fogBrushShape || "circle";
+  for(const pid of targets){
+    if(!state.fog[pid]) state.fog[pid] = [{type:"fill"}];
+    if(shape==="rect" && extra){
+      state.fog[pid].push({mode, shape:"rect", x:extra.x, y:extra.y, w:extra.w, h:extra.h});
+    } else {
+      state.fog[pid].push({mode, shape:"circle", x:p.x, y:p.y, r:size});
+    }
+  }
+  invalidateFogCache();
+  saveState();
+  drawFog();
+}
+
+function clearFog(){
+  const targets = getFogTargets();
+  if(targets.length===0){ showNotice("Выберите игрока"); return; }
+  for(const pid of targets){ state.fog[pid] = [{type:"clear"}]; }
+  invalidateFogCache();
+  applyPatch({fog: state.fog});
+  const names = targets.map(id=>state.players[id].name).join(", ");
+  showNotice(`Туман снят для: ${names}`);
+}
+
+function fillFog(){
+  const targets = getFogTargets();
+  if(targets.length===0){ showNotice("Выберите игрока"); return; }
+  for(const pid of targets){ state.fog[pid] = [{type:"fill"}]; }
+  invalidateFogCache();
+  applyPatch({fog: state.fog});
+  const names = targets.map(id=>state.players[id].name).join(", ");
+  showNotice(`Туман наложен для: ${names}`);
+}
+
+function selectAllFog(all){
+  selectedFogPlayers.clear();
+  if(all){
+    Object.values(state.players).filter(p=>p.role==="player").forEach(p=>selectedFogPlayers.add(p.id));
+  }
+  renderFogPlayerSelect();
+}
+
+function toggleFogPlayer(pid){
+  if(selectedFogPlayers.has(pid)) selectedFogPlayers.delete(pid);
+  else selectedFogPlayers.add(pid);
+  renderFogPlayerSelect();
+}
+
+function renderFogPlayerSelect(){
+  const box = document.getElementById("fogChips");
+  if(!box) return;
+  // Только онлайн-игроки
+  const players = Object.values(state.players).filter(p=>p.role==="player" && isPlayerOnline(p));
+  // очистим неактуальных
+  Array.from(selectedFogPlayers).forEach(id=>{
+    if(!players.find(p=>p.id===id)) selectedFogPlayers.delete(id);
+  });
+  if(players.length===0){
+    box.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:6px 0">Нет онлайн-игроков</div>`;
+    return;
+  }
+  box.innerHTML = "";
+  players.forEach(p=>{
+    const chip = document.createElement("div");
+    chip.className = "fog-chip"+(selectedFogPlayers.has(p.id)?" active":"");
+    chip.innerHTML = `<div class="dot" style="background:${p.color}"></div><span>${escapeHtml(p.name)}</span>`;
+    chip.onclick = ()=> toggleFogPlayer(p.id);
+    box.appendChild(chip);
+  });
+}
+
+// ---------- Pan / Zoom ----------
+let panning=false, spaceHeld=false, panSx=0, panSy=0, panSPX=0, panSPY=0;
+function startPan(e){ panning=true; panSx=e.clientX; panSy=e.clientY; panSPX=view.panX; panSPY=view.panY; boardScroll.setPointerCapture(e.pointerId); boardScroll.style.cursor="grabbing"; }
+function movePan(e){ view.panX = panSPX + (e.clientX-panSx); view.panY = panSPY + (e.clientY-panSy); applyTransform(); }
+function endPan(e){ panning=false; boardScroll.style.cursor = (currentTool==="select"?"default":"crosshair"); }
+document.addEventListener("keydown",(e)=>{ if(e.code==="Space"){ spaceHeld=true; boardScroll.style.cursor="grab"; }});
+document.addEventListener("keyup",(e)=>{ if(e.code==="Space"){ spaceHeld=false; boardScroll.style.cursor = (currentTool==="select"?"default":"crosshair"); }});
+
+boardScroll.addEventListener("wheel",(e)=>{
+  e.preventDefault();
+  const rect = boardScroll.getBoundingClientRect();
+  const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const newZoom = Math.max(0.2, Math.min(3, view.zoom*factor));
+  // приблизимся к курсору
+  view.panX = mx - (mx - view.panX)*(newZoom/view.zoom);
+  view.panY = my - (my - view.panY)*(newZoom/view.zoom);
+  view.zoom = newZoom;
+  applyTransform();
+},{passive:false});
+
+function zoomBy(f){ view.zoom = Math.max(0.2, Math.min(3, view.zoom*f)); applyTransform(); }
+function resetView(){ view={zoom:1,panX:20,panY:20}; applyTransform(); }
+function applyTransform(){
+  boardLayers.style.transform = `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`;
+  if(typeof updateBrushCursor==="function") updateBrushCursor();
+}
+
+// ---------- BG upload ----------
+document.getElementById("bgUpload")?.addEventListener("change",(e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    state.board.bg = r.result;
+    _lastBgSrc = r.result;
+    const img = new Image();
+    img.onload = ()=>{
+      bgImage = img;
+      // Сделаем доску размером с картинку (макс 3000)
+      const maxDim = 3000;
+      let w = img.width, h = img.height;
+      if(w>maxDim || h>maxDim){ const s = maxDim/Math.max(w,h); w=Math.floor(w*s); h=Math.floor(h*s); }
+      state.board.w = Math.max(w, 1200);
+      state.board.h = Math.max(h, 800);
+      resizeBoard(); drawBackground(); drawGrid(); drawDrawings(); drawFog(); renderTokens();
+      saveState();
+      // Отправляем полный state — карта тяжёлая, patch может теряться
+      broadcast({type:"full-state", state});
+      showNotice("Карта загружена и разослана");
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(f);
+});
+
+document.getElementById("gridSize")?.addEventListener("change",(e)=>{
+  state.board.gridSize = parseInt(e.target.value)||50;
+  drawGrid(); applyPatch({board: state.board});
+});
+
+// ---------- NPC ----------
+async function addNpc(){
+  const r = await dlgPrompt("Создание NPC", [
+    {name:"name", label:"Имя NPC", type:"text", value:"Гоблин"},
+    {name:"color", label:"Цвет токена", type:"color", value:"#c0392b"},
+    {name:"size", label:"Размер (px)", type:"number", value:"50"},
+    {name:"hp", label:"HP (необязательно)", type:"text", value:""}
+  ]);
+  if(!r || !r.name) return;
+  const id = "npc_"+Date.now();
+  const t = { id, type:"npc", name:r.name.trim(), color:r.color||"#c0392b", avatar:null,
+              x:400+Math.random()*200, y:300+Math.random()*200,
+              size:parseInt(r.size)||50, ownerId:"master", hp: r.hp||null, visionRadius:0 };
+  state.tokens[id] = t;
+  applyPatch({tokens: state.tokens});
+  renderTokens(); renderNpcList();
+  showNotice(`NPC "${t.name}" создан`);
+}
+function renderNpcList(){
+  const el = document.getElementById("npcList"); if(!el) return;
+  el.innerHTML="";
+  Object.values(state.tokens).filter(t=>t.type==="npc").forEach(t=>{
+    const row = document.createElement("div"); row.className="npc-item";
+    row.innerHTML = `<div class="sw" style="background:${t.color};border-color:${t.color}"></div>
+      <div class="nm">${escapeHtml(t.name)}</div>
+      <button title="Настроить">⚙</button>
+      <button title="Удалить">✕</button>`;
+    const [gear, del] = row.querySelectorAll("button");
+    gear.onclick = async ()=>{
+      const r = await dlgPrompt("Редактирование NPC", [
+        {name:"name", label:"Имя", type:"text", value:t.name},
+        {name:"color", label:"Цвет", type:"color", value:t.color},
+        {name:"size", label:"Размер (px)", type:"number", value:t.size},
+        {name:"hp", label:"HP", type:"text", value:t.hp||""}
+      ]);
+      if(!r) return;
+      t.name = r.name||t.name; t.color = r.color||t.color;
+      t.size = parseInt(r.size)||t.size; t.hp = r.hp||null;
+      state.tokens[t.id]=t; applyPatch({tokens:state.tokens}); renderTokens(); renderNpcList();
+    };
+    del.onclick = async ()=>{
+      const ok = await dlgConfirm("Удалить NPC?", `Удалить "${t.name}"?`);
+      if(ok){ delete state.tokens[t.id]; applyPatch({tokens:state.tokens}); renderTokens(); renderNpcList(); }
+    };
+    el.appendChild(row);
+  });
+}
+
+// ---------- Чат ----------
+function renderChat(){
+  const box = document.getElementById("chatMessages"); if(!box) return;
+  box.innerHTML="";
+  for(const m of state.chat){
+    // фильтр приватных
+    if(m.type==="pm"){
+      if(role!=="master" && m.fromId!==me.id) continue;
+    }
+    const div = document.createElement("div");
+    div.className = "msg " + (m.type||"chat");
+    if(m.type==="system"){
+      div.innerHTML = escapeHtml(m.text);
+    } else if(m.type==="roll"){
+      div.innerHTML = `<div class="from">${escapeHtml(m.from)}</div>
+        <div>бросает <b>${escapeHtml(m.rollDetails.expr)}</b></div>
+        <div class="result">${m.rollDetails.total} <span style="font-size:11px;color:var(--muted)">= ${escapeHtml(m.rollDetails.detail)}</span></div>`;
+    } else {
+      div.innerHTML = `<div class="from" style="color:${m.color||'var(--gold2)'}">${escapeHtml(m.from)}</div><div>${escapeHtml(m.text)}</div>`;
+    }
+    box.appendChild(div);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendChat(){
+  const inp = document.getElementById("chatInput");
+  const text = inp.value.trim(); if(!text) return;
+  inp.value="";
+  let msg;
+  if(text.startsWith("/r ") || text.startsWith("/roll ")){
+    const expr = text.replace(/^\/(r|roll)\s+/, "");
+    const res = rollDice(expr);
+    msg = { id:"m_"+Date.now(), type:"roll", from:me.name, fromId:me.id, ts:Date.now(),
+            color:me.color, rollDetails: res };
+  } else if(text.startsWith("/w ") || text.startsWith("/whisper ")){
+    const t = text.replace(/^\/(w|whisper)\s+/, "");
+    msg = { id:"m_"+Date.now(), type:"pm", from:me.name, fromId:me.id, ts:Date.now(),
+            color:me.color, text:t, to:"master" };
+  } else if(document.getElementById("pmToggle")?.checked && role==="player"){
+    msg = { id:"m_"+Date.now(), type:"pm", from:me.name, fromId:me.id, ts:Date.now(),
+            color:me.color, text, to:"master" };
+  } else {
+    msg = { id:"m_"+Date.now(), type:"chat", from:me.name, fromId:me.id, ts:Date.now(),
+            color:me.color, text };
+  }
+  state.chat.push(msg);
+  if(state.chat.length>200) state.chat = state.chat.slice(-200);
+  saveState();
+  broadcast({type:"chat", msg});
+  renderChat();
+}
+
+function rollDice(expr){
+  // "2d20+3-1d4"
+  const clean = expr.replace(/\s+/g,"");
+  const parts = clean.split(/(?=[+-])/);
+  let total = 0;
+  const details = [];
+  for(const p of parts){
+    const sign = p.startsWith("-") ? -1 : 1;
+    const body = p.replace(/^[+-]/,"");
+    if(body.includes("d")){
+      const [nS,fS] = body.split("d");
+      const n = parseInt(nS||"1")||1;
+      const f = parseInt(fS)||6;
+      const rolls = [];
+      for(let i=0;i<Math.min(n,50);i++){
+        const r = 1+Math.floor(Math.random()*f);
+        rolls.push(r); total += sign*r;
+      }
+      details.push((sign<0?"-":"")+`${n}d${f}[${rolls.join(",")}]`);
+    } else {
+      const v = parseInt(body)||0;
+      total += sign*v;
+      details.push((sign<0?"-":"+")+Math.abs(v));
+    }
+  }
+  return { expr, total, detail: details.join(" ") };
+}
+
+// ---------- Музыка ----------
+let audioEl = null;
+function ensureAudio(){
+  if(!audioEl){
+    audioEl = new Audio();
+    audioEl.loop = true;
+    audioEl.volume = state.music.volume ?? 0.6;
+  }
+  return audioEl;
+}
+
+function renderMusicList(){
+  const el = document.getElementById("musicList"); if(!el) return;
+  el.innerHTML="";
+  for(const t of state.music.tracks){
+    const row = document.createElement("div"); row.className="music-track";
+    row.innerHTML = `<div class="title">${escapeHtml(t.name)}</div>
+      <button title="Играть всем">▶</button>
+      <button title="Стоп">■</button>
+      <button title="Удалить">✕</button>`;
+    const [play,stop,del] = row.querySelectorAll("button");
+    play.onclick = ()=> masterPlay(t.id);
+    stop.onclick = ()=> masterStop();
+    del.onclick = ()=>{
+      state.music.tracks = state.music.tracks.filter(x=>x.id!==t.id);
+      applyPatch({music: state.music}); renderMusicList();
+    };
+    el.appendChild(row);
+  }
+  const np = document.getElementById("nowPlaying");
+  if(state.music.playing && state.music.playingId){
+    const cur = state.music.tracks.find(x=>x.id===state.music.playingId);
+    np.textContent = "♪ Играет: "+(cur?cur.name:"...");
+    np.classList.add("playing");
+  } else {
+    np.textContent = "🔇 Тишина";
+    np.classList.remove("playing");
+  }
+}
+
+function masterPlay(id){
+  state.music.playingId = id;
+  state.music.playing = true;
+  state.music.startedAt = Date.now();
+  applyPatch({music: state.music});
+  broadcast({type:"music-cmd", cmd:{action:"play", id, volume: state.music.volume}});
+  handleMusicCmd({action:"play", id, volume: state.music.volume});
+  renderMusicList();
+}
+function masterStop(){
+  state.music.playing = false;
+  applyPatch({music: state.music});
+  broadcast({type:"music-cmd", cmd:{action:"stop"}});
+  handleMusicCmd({action:"stop"});
+  renderMusicList();
+}
+
+let pendingMusicCmd = null; // Команда, которая ждёт разблокировки автоплея
+function handleMusicCmd(cmd){
+  const a = ensureAudio();
+  if(cmd.action==="play"){
+    const t = state.music.tracks.find(x=>x.id===cmd.id);
+    if(!t){
+      // Трек ещё не пришёл — запомним и попробуем позже, когда придёт state с треками
+      pendingMusicCmd = cmd;
+      console.log("[music] трек ещё не пришёл, ждём...");
+      return;
+    }
+    if(a.src !== t.data){ a.src = t.data; }
+    if(cmd.volume!=null) a.volume = cmd.volume;
+    const p = a.play();
+    if(p && p.catch) p.catch(err=>{
+      // Автоплей заблокирован — сохраним команду и покажем баннер
+      pendingMusicCmd = cmd;
+      showAudioUnlockBanner();
+    });
+  } else if(cmd.action==="stop"){
+    a.pause();
+    pendingMusicCmd = null;
+    hideAudioUnlockBanner();
+  } else if(cmd.action==="volume"){
+    a.volume = cmd.volume;
+  }
+  renderMusicList();
+}
+
+function showAudioUnlockBanner(){
+  let b = document.getElementById("audioBanner");
+  if(!b){
+    b = document.createElement("div");
+    b.id = "audioBanner";
+    b.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:linear-gradient(180deg,#c9a24a,#8a5a1a);color:#1a0f28;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;z-index:2500;box-shadow:0 10px 30px -10px #000;animation:fadein .3s;user-select:none";
+    b.innerHTML = "🔊 Мастер включил музыку — нажмите здесь, чтобы услышать";
+    b.onclick = ()=>{
+      if(pendingMusicCmd){
+        const cmd = pendingMusicCmd;
+        pendingMusicCmd = null;
+        handleMusicCmd(cmd);
+      }
+      hideAudioUnlockBanner();
+    };
+    document.body.appendChild(b);
+  }
+  b.style.display = "block";
+}
+function hideAudioUnlockBanner(){
+  const b = document.getElementById("audioBanner");
+  if(b) b.style.display = "none";
+}
+
+document.getElementById("musicUpload")?.addEventListener("change",(e)=>{
+  const files = Array.from(e.target.files||[]);
+  let done = 0;
+  for(const f of files){
+    const r = new FileReader();
+    r.onload = ()=>{
+      state.music.tracks.push({id:"t_"+Date.now()+"_"+Math.random().toString(36).slice(2,6), name:f.name, data:r.result});
+      done++;
+      if(done===files.length){
+        saveState();
+        // Отправляем полный state, чтобы гарантированно донести треки до всех
+        broadcast({type:"full-state", state});
+        renderMusicList();
+        showNotice("Трек загружен и разослан игрокам");
+      }
+    };
+    r.readAsDataURL(f);
+  }
+});
+document.getElementById("musicVol")?.addEventListener("input",(e)=>{
+  const v = parseInt(e.target.value)/100;
+  state.music.volume = v;
+  const a = ensureAudio(); a.volume = v;
+  broadcast({type:"music-cmd", cmd:{action:"volume", volume:v}});
+  saveState();
+});
+
+// Разблокировка звука по любому клику — пробуем запустить любую ждущую команду
+document.addEventListener("click", ()=>{
+  if(pendingMusicCmd){
+    const cmd = pendingMusicCmd;
+    pendingMusicCmd = null;
+    handleMusicCmd(cmd);
+    hideAudioUnlockBanner();
+  } else if(state.music && state.music.playing && state.music.playingId){
+    // Автоматический докат: если играет у мастера, но у нас нет звука — запустим
+    const a = ensureAudio();
+    if(a.paused){
+      handleMusicCmd({action:"play", id: state.music.playingId, volume: state.music.volume});
+    }
+  }
+});
+
+// ---------- UI setup ----------
+function setupUI(){
+  document.querySelectorAll(".tool").forEach(b=>{
+    b.onclick = ()=> setTool(b.dataset.tool);
+  });
+  document.querySelectorAll(".tabs button").forEach(b=>{
+    b.onclick = ()=>{
+      document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach(x=>x.classList.toggle("active", x.dataset.tab===b.dataset.tab));
+    };
+  });
+  document.getElementById("chatSend").onclick = sendChat;
+  document.getElementById("chatInput").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); sendChat(); }});
+  document.getElementById("musicVol").value = Math.round((state.music.volume??0.6)*100);
+
+  // Fog: инструменты в панели тумана
+  document.querySelectorAll(".fog-tool-btn[data-tool]").forEach(b=>{
+    b.onclick = ()=>{
+      setTool(b.dataset.tool);
+      document.querySelectorAll(".fog-tool-btn[data-tool]").forEach(x=>x.classList.toggle("active", x===b));
+    };
+  });
+  document.querySelectorAll(".fog-tool-btn[data-shape]").forEach(b=>{
+    b.onclick = ()=>{
+      fogBrushShape = b.dataset.shape;
+      document.querySelectorAll(".fog-tool-btn[data-shape]").forEach(x=>x.classList.toggle("active", x===b));
+      updateBrushCursor();
+    };
+  });
+  // По умолчанию активен круг
+  const circleBtn = document.querySelector('.fog-tool-btn[data-shape="circle"]');
+  if(circleBtn) circleBtn.classList.add("active");
+  document.getElementById("fogBrush")?.addEventListener("input", (e)=>{
+    document.getElementById("fogBrushVal").textContent = e.target.value;
+    updateBrushCursor();
+  });
+  // Динамическое зрение
+  const dv = document.getElementById("dynVision");
+  if(dv){
+    dv.checked = !!(state.settings && state.settings.dynamicVision);
+    dv.onchange = ()=>{
+      state.settings = Object.assign({}, state.settings||{}, {dynamicVision: dv.checked});
+      invalidateFogCache();
+      applyPatch({settings: state.settings});
+      renderTokens();
+      showNotice(dv.checked ? "Динамическое зрение включено" : "Динамическое зрение выключено");
+    };
+  }
+
+  // Настройки игрока — форма
+  if(role==="player"){
+    const nm = document.getElementById("myName");
+    const cl = document.getElementById("myColor");
+    const sz = document.getElementById("mySize");
+    const t = state.tokens[me.id];
+    if(t){
+      nm.value = t.name;
+      cl.value = t.color;
+      sz.value = t.size;
+      document.getElementById("mySizeVal").textContent = t.size;
+    }
+    let saveTimer;
+    const saveMe = ()=>{
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(()=>{
+        const tt = state.tokens[me.id];
+        if(!tt) return;
+        tt.name = nm.value.trim() || tt.name;
+        tt.color = cl.value;
+        tt.size = parseInt(sz.value)||50;
+        // visionRadius игрок НЕ меняет — только мастер
+        state.tokens[me.id] = tt;
+        me.name = tt.name; me.color = tt.color; me.avatar = tt.avatar;
+        state.players[me.id] = Object.assign(state.players[me.id]||{}, {name:me.name, color:me.color, avatar:me.avatar});
+        document.getElementById("whoName").textContent = me.name;
+        document.getElementById("myHeroName").textContent = me.name;
+        const av = document.getElementById("myHeroAvatar");
+        av.style.borderColor = me.color;
+        if(!me.avatar) av.style.background = me.color;
+        applyPatch({tokens: state.tokens, players: state.players});
+        broadcast({type:"presence", player: state.players[me.id]});
+        renderTokens();
+        drawFog();
+      }, 200);
+    };
+    nm.oninput = saveMe;
+    cl.oninput = saveMe;
+    sz.oninput = ()=>{ document.getElementById("mySizeVal").textContent = sz.value; saveMe(); };
+    document.getElementById("myAvatarUpload").onchange = (e)=>{
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = ()=>{
+        const tt = state.tokens[me.id];
+        tt.avatar = r.result;
+        me.avatar = r.result;
+        state.tokens[me.id] = tt;
+        state.players[me.id].avatar = r.result;
+        document.getElementById("myHeroAvatar").style.backgroundImage = `url(${r.result})`;
+        applyPatch({tokens: state.tokens, players: state.players});
+        broadcast({type:"presence", player: state.players[me.id]});
+        renderTokens();
+      };
+      r.readAsDataURL(f);
+    };
+  }
+
+  resetView();
+}
+
+// Кисть-курсор при наведении на доску (fog-инструменты)
+function updateBrushCursor(){
+  const el = document.getElementById("brushCursor");
+  if(!el) return;
+  const size = parseInt(document.getElementById("fogBrush")?.value)||80;
+  el.style.width = (size*2*view.zoom)+"px";
+  el.style.height = (size*2*view.zoom)+"px";
+  el.classList.toggle("rect", fogBrushShape==="rect");
+  el.classList.toggle("hide-mode", currentTool==="fog-hide");
+}
+function showBrushCursor(x,y){
+  const el = document.getElementById("brushCursor");
+  if(!el) return;
+  const isFog = (currentTool==="fog-hide"||currentTool==="fog-reveal");
+  if(!isFog || role!=="master"){ el.style.display="none"; return; }
+  updateBrushCursor();
+  el.style.left = x+"px";
+  el.style.top = y+"px";
+  el.style.display="block";
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+  // подключим позже, после старта app
+});
+
+// ---------- Players list ----------
+function renderPlayers(){
+  const el = document.getElementById("playersList"); if(!el) return;
+  el.innerHTML="";
+
+  const players = Object.values(state.players);
+  const online = players.filter(p=>isPlayerOnline(p) || (me && p.id===me.id));
+  const offline = players.filter(p=>!isPlayerOnline(p) && !(me && p.id===me.id));
+
+  // Верхний блок — статистика и кнопки мастера
+  if(role==="master"){
+    const bar = document.createElement("div");
+    bar.style.cssText = "display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap";
+    bar.innerHTML = `<div style="font-size:11px;color:var(--muted);flex:1;line-height:24px">🟢 ${online.length} онлайн · 🔴 ${offline.length} офлайн</div>`;
+    const cleanBtn = document.createElement("button");
+    cleanBtn.textContent = "🧹 Убрать офлайн";
+    cleanBtn.title = "Удалить всех, кого нет в сети";
+    cleanBtn.style.cssText = "background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px";
+    cleanBtn.onmouseover = ()=>{ cleanBtn.style.borderColor="var(--gold)"; cleanBtn.style.color="var(--gold2)"; };
+    cleanBtn.onmouseout = ()=>{ cleanBtn.style.borderColor="var(--line)"; cleanBtn.style.color="var(--muted)"; };
+    cleanBtn.onclick = cleanOfflinePlayers;
+    bar.appendChild(cleanBtn);
+    const resetBtn = document.createElement("button");
+    resetBtn.textContent = "🆕 Новая сессия";
+    resetBtn.title = "Убрать всех игроков и очистить туман";
+    resetBtn.style.cssText = "background:transparent;border:1px solid var(--danger);color:#ff9a8b;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px";
+    resetBtn.onmouseover = ()=>{ resetBtn.style.background="var(--danger)"; resetBtn.style.color="#fff"; };
+    resetBtn.onmouseout = ()=>{ resetBtn.style.background="transparent"; resetBtn.style.color="#ff9a8b"; };
+    resetBtn.onclick = newSession;
+    bar.appendChild(resetBtn);
+    el.appendChild(bar);
+  }
+
+  // Список — сначала онлайн, потом офлайн
+  const sorted = [...online, ...offline];
+  sorted.forEach(p=>{
+    const isMe = me && p.id === me.id;
+    const online = isPlayerOnline(p) || isMe;
+    const row = document.createElement("div");
+    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px;background:#100819;border:1px solid var(--line);border-radius:8px;opacity:${online?1:0.5}`;
+    const av = document.createElement("div");
+    av.style.cssText = `width:36px;height:36px;border-radius:50%;border:2px solid ${p.color};flex-shrink:0;background-size:cover;background-position:center;${online?"":"filter:grayscale(1)"}`;
+    if(p.avatar) av.style.backgroundImage=`url(${p.avatar})`;
+    else av.style.background = p.color;
+    row.appendChild(av);
+    const info = document.createElement("div"); info.style.flex="1";
+    const dot = online ? '<span style="color:#7fd18a">●</span>' : '<span style="color:#666">●</span>';
+    info.innerHTML = `<div style="font-size:13px;color:${p.color}">${dot} ${escapeHtml(p.name)}${isMe?' <span style="color:var(--muted);font-size:10px">(вы)</span>':''}</div>
+      <div style="font-size:10px;color:var(--muted)">${p.role==="master"?"👑 Мастер":"🗡️ Игрок"} · ${online?"онлайн":"офлайн"}</div>`;
+    row.appendChild(info);
+    // Мастер может выгнать любого игрока (кроме себя и других мастеров)
+    if(role==="master" && p.role==="player" && !isMe){
+      const kickBtn = document.createElement("button");
+      kickBtn.textContent = "✕";
+      kickBtn.title = online ? "Выгнать игрока" : "Удалить офлайн-игрока";
+      kickBtn.style.cssText = "background:transparent;border:1px solid var(--danger);color:#ff9a8b;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px";
+      kickBtn.onmouseover = ()=>{ kickBtn.style.background="var(--danger)"; kickBtn.style.color="#fff"; };
+      kickBtn.onmouseout = ()=>{ kickBtn.style.background="transparent"; kickBtn.style.color="#ff9a8b"; };
+      kickBtn.onclick = ()=> kickPlayer(p);
+      row.appendChild(kickBtn);
+    }
+    el.appendChild(row);
+  });
+
+  if(sorted.length===0){
+    el.innerHTML += '<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">Игроков пока нет</div>';
+  }
+}
+
+async function cleanOfflinePlayers(){
+  const offlinePlayers = Object.values(state.players).filter(p=>!isPlayerOnline(p) && !(me && p.id===me.id));
+  if(offlinePlayers.length===0){ showNotice("Нет офлайн-игроков"); return; }
+  const ok = await dlgConfirm("🧹 Убрать офлайн-игроков",
+    `Удалить ${offlinePlayers.length} офлайн-${offlinePlayers.length===1?"игрока":"игроков"}? Их токены и туман будут удалены.`);
+  if(!ok) return;
+  for(const p of offlinePlayers){
+    delete state.players[p.id];
+    delete state.tokens[p.id];
+    delete state.fog[p.id];
+  }
+  invalidateFogCache();
+  applyPatch({players: state.players, tokens: state.tokens, fog: state.fog});
+  renderAll();
+  showNotice(`Убрано игроков: ${offlinePlayers.length}`);
+}
+
+async function newSession(){
+  const ok = await dlgConfirm("🆕 Начать новую сессию",
+    "Это полностью обнулит доску: карта, рисунки, туман, все игроки, NPC, музыка, чат — всё будет удалено. Останетесь только вы как мастер. Продолжить?");
+  if(!ok) return;
+  // Останавливаем музыку
+  if(audioEl){ try{ audioEl.pause(); }catch(e){} }
+  // Просим сервер сбросить состояние
+  broadcast({type:"reset-state"});
+  // Собираем полностью чистое состояние, оставляем только себя как мастера
+  const freshState = defaultState();
+  if(me){
+    freshState.players[me.id] = { id:me.id, name:me.name, color:me.color, avatar:me.avatar, role:"master", online: Date.now() };
+  }
+  state = freshState;
+  bgImage = null;
+  invalidateFogCache();
+  saveState();
+  // Отправляем всем новое полное состояние
+  broadcast({type:"full-state", state});
+  systemMessage("Мастер начал новую сессию");
+  renderAll();
+  showNotice("🆕 Новая сессия начата — доска очищена");
+}
+
+async function kickPlayer(p){
+  const ok = await dlgConfirm("Выгнать игрока", `Выгнать "${p.name}" из игры? Его токен и туман будут удалены.`);
+  if(!ok) return;
+  // Уведомим игрока
+  broadcast({type:"kick", playerId: p.id, by: me.name});
+  // Удалим данные локально и синхронизируем
+  delete state.players[p.id];
+  delete state.tokens[p.id];
+  delete state.fog[p.id];
+  invalidateFogCache();
+  applyPatch({players: state.players, tokens: state.tokens, fog: state.fog});
+  systemMessage(`${p.name} выгнан мастером`);
+  renderAll();
+  showNotice(`${p.name} выгнан`);
+}
+
+// ---------- Renderers root ----------
+let _lastBgSrc = null;
+function renderAll(){
+  resizeBoard();
+  // Перезагружаем фон если он изменился (или его убрали)
+  if(state.board.bg && state.board.bg !== _lastBgSrc){
+    _lastBgSrc = state.board.bg;
+    const img = new Image();
+    img.onload = ()=>{ bgImage = img; drawBackground(); };
+    img.src = state.board.bg;
+  } else if(!state.board.bg && _lastBgSrc){
+    _lastBgSrc = null;
+    bgImage = null;
+    drawBackground();
+  } else {
+    drawBackground();
+  }
+  drawGrid();
+  drawDrawings();
+  drawFog();
+  renderTokens();
+  renderChat();
+  renderNpcList();
+  renderMusicList();
+  renderPlayers();
+  renderFogPlayerSelect();
+}
+
+// ---------- Utils ----------
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+// Универсальные диалоги (замена нативных prompt/confirm, которые заблокированы в sandbox-iframe)
+function dlgClose(){ document.getElementById("dlgBg").classList.remove("show"); }
+function dlgConfirm(title, body){
+  return new Promise(res=>{
+    const dlg = document.getElementById("dlg");
+    dlg.innerHTML = `<h3>${escapeHtml(title)}</h3><div class="body">${escapeHtml(body||"")}</div>
+      <div class="row">
+        <button class="btn ghost" id="dlgNo">Отмена</button>
+        <button class="btn primary" id="dlgYes">Да</button>
+      </div>`;
+    document.getElementById("dlgBg").classList.add("show");
+    dlg.querySelector("#dlgYes").onclick=()=>{ dlgClose(); res(true); };
+    dlg.querySelector("#dlgNo").onclick=()=>{ dlgClose(); res(false); };
+  });
+}
+function dlgAlert(title, body){
+  return new Promise(res=>{
+    const dlg = document.getElementById("dlg");
+    dlg.innerHTML = `<h3>${escapeHtml(title)}</h3><div class="body">${escapeHtml(body||"")}</div>
+      <div class="row">
+        <button class="btn primary" id="dlgOk">Ок</button>
+      </div>`;
+    document.getElementById("dlgBg").classList.add("show");
+    dlg.querySelector("#dlgOk").onclick=()=>{ dlgClose(); res(true); };
+  });
+}
+function dlgPrompt(title, fields){
+  // fields: [{name,label,type,value,options?}]
+  return new Promise(res=>{
+    const dlg = document.getElementById("dlg");
+    const fhtml = fields.map(f=>{
+      if(f.type==="select"){
+        return `<div><label>${escapeHtml(f.label)}</label>
+          <select data-name="${escapeHtml(f.name)}">
+            ${f.options.map(o=>`<option value="${escapeHtml(o.value)}" ${o.value===f.value?"selected":""}>${escapeHtml(o.label)}</option>`).join("")}
+          </select></div>`;
+      }
+      return `<div><label>${escapeHtml(f.label)}</label>
+        <input type="${f.type||"text"}" data-name="${escapeHtml(f.name)}" value="${escapeHtml(f.value??"")}" ${f.max?`maxlength="${f.max}"`:""} /></div>`;
+    }).join("");
+    dlg.innerHTML = `<h3>${escapeHtml(title)}</h3>
+      <div class="fields">${fhtml}</div>
+      <div class="row">
+        <button class="btn ghost" id="dlgCancel">Отмена</button>
+        <button class="btn primary" id="dlgOk">OK</button>
+      </div>`;
+    document.getElementById("dlgBg").classList.add("show");
+    const first = dlg.querySelector("input,select");
+    if(first) setTimeout(()=>first.focus(),50);
+    const submit = ()=>{
+      const out = {};
+      dlg.querySelectorAll("[data-name]").forEach(el=>{ out[el.dataset.name]=el.value; });
+      dlgClose(); res(out);
+    };
+    dlg.querySelector("#dlgOk").onclick = submit;
+    dlg.querySelector("#dlgCancel").onclick = ()=>{ dlgClose(); res(null); };
+    dlg.querySelectorAll("input").forEach(inp=>{
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter") submit(); if(e.key==="Escape"){ dlgClose(); res(null);} });
+    });
+  });
+}
+function dlgMenu(title, options){
+  // options: [{label, value, danger?}]
+  return new Promise(res=>{
+    const dlg = document.getElementById("dlg");
+    dlg.innerHTML = `<h3>${escapeHtml(title)}</h3>
+      <div class="fields">
+        ${options.map((o,i)=>`<button class="btn-block ${o.danger?"":""}" data-i="${i}" style="${o.danger?"border-color:var(--danger);color:#ff9a8b":""}">${escapeHtml(o.label)}</button>`).join("")}
+      </div>
+      <div class="row"><button class="btn ghost" id="dlgCancel">Отмена</button></div>`;
+    document.getElementById("dlgBg").classList.add("show");
+    dlg.querySelectorAll("button[data-i]").forEach(b=>{
+      b.onclick = ()=>{ const i=parseInt(b.dataset.i); dlgClose(); res(options[i].value); };
+    });
+    dlg.querySelector("#dlgCancel").onclick=()=>{ dlgClose(); res(null); };
+  });
+}
+function showNotice(text){
+  const n = document.getElementById("notice");
+  n.textContent = text; n.style.display="block";
+  clearTimeout(showNotice._t);
+  showNotice._t = setTimeout(()=>{ n.style.display="none"; }, 2500);
+}
+
+// Смена роли без перезагрузки (location.reload() блокируется sandbox-iframe)
+async function switchRole(){
+  const ok = await dlgConfirm("🚪 Выйти из игры", "Вернуться в главное меню? Если вы последний участник — сессия обнулится через 30 секунд.");
+  if(!ok) return;
+  // Сообщаем другим вкладкам об уходе
+  if(me){
+    const msg = { id:"m_"+Date.now(), type:"system", text:`${me.name} покинул игру`, ts:Date.now() };
+    state.chat.push(msg);
+    if(state.chat.length>200) state.chat = state.chat.slice(-200);
+    saveState();
+    broadcast({type:"chat", msg});
+    // Убираем себя из списка присутствующих (и токен, и туман — если игрок)
+    if(role==="player"){
+      delete state.players[me.id];
+      delete state.tokens[me.id];
+      delete state.fog[me.id];
+      invalidateFogCache();
+      applyPatch({players: state.players, tokens: state.tokens, fog: state.fog});
+    } else if(role==="master"){
+      // Мастер выходит — тоже удаляем из списка (сервер сбросит всё, если пусто)
+      delete state.players[me.id];
+      applyPatch({players: state.players});
+    }
+  }
+  // Останавливаем музыку локально
+  if(audioEl){ try{ audioEl.pause(); }catch(e){} }
+  // Сбрасываем локальные переменные роли
+  role = null;
+  me = null;
+  selectedFogPlayers.clear();
+  bgImage = null;
+  // Очищаем локальный кэш — при следующем входе состояние придёт с сервера (или будет чистое)
+  try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+  state = defaultState();
+  // Скрываем приложение и возвращаем меню
+  document.getElementById("app").classList.remove("show");
+  document.getElementById("masterTools").style.display="none";
+  document.getElementById("playerTools").style.display="none";
+  document.getElementById("fogCtl").style.display="none";
+  document.getElementById("pmToggleWrap").style.display="none";
+  // Очищаем поля форм
+  document.getElementById("masterPass").value="";
+  document.getElementById("masterErr").textContent="";
+  document.getElementById("playerName").value="";
+  document.getElementById("playerErr").textContent="";
+  document.getElementById("playerAvatar").value="";
+  // Показываем главное меню
+  document.getElementById("menu").style.display="flex";
+}
+
+// keyboard enter in modals
+document.getElementById("masterPass").addEventListener("keydown",e=>{ if(e.key==="Enter") loginMaster(); });
+document.getElementById("playerName").addEventListener("keydown",e=>{ if(e.key==="Enter") loginPlayer(); });
+// Esc для диалогов
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && document.getElementById("dlgBg").classList.contains("show")) dlgClose();
+});
+
+// Ping other tabs on open so master (if present) resends state
+setTimeout(()=>{ if(role) broadcast({type:"hello"}); }, 300);
+
+// При закрытии — попрощаемся
+window.addEventListener("beforeunload", ()=>{
+  if(me){ systemMessage(`${me.name} покинул игру`); }
+});
+
+</script>
+</body>
+</html>

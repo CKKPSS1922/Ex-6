@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: vrata-sudby
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
