@@ -288,9 +288,6 @@
         <button class="tool" data-tool="shape">◻ Фигура</button>
         <button class="tool" data-tool="image">🖼 Изображение</button>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">
-        Инструменты тумана — в панели <b style="color:var(--gold2)">справа сверху</b>
-      </div>
 
       <div class="field">
         <label>Цвет / Заливка</label>
@@ -328,6 +325,39 @@
         </div>
       </div>
 
+      <div class="panel-title">🌫 Туман войны</div>
+      <div class="fog-hint">Выбери игроков и рисуй кистью — правки применятся только к ним</div>
+      <div id="fogChips"></div>
+
+      <div style="display:flex;gap:4px;margin:8px 0">
+        <button class="fog-tool-btn" data-tool="fog-reveal" title="Открыть кистью">☀ Открыть</button>
+        <button class="fog-tool-btn" data-tool="fog-hide" title="Скрыть кистью">🌫 Скрыть</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button class="fog-tool-btn small" data-shape="circle" title="Круглая кисть">●</button>
+        <button class="fog-tool-btn small" data-shape="rect" title="Прямоугольная область">▭</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
+        Размер кисти: <span id="fogBrushVal">80</span> px
+      </div>
+      <input type="range" id="fogBrush" min="20" max="500" value="80" step="10" style="width:100%;margin-bottom:6px" />
+
+      <div style="border-top:1px solid var(--line);margin:8px 0 6px;padding-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="dynVision" /> Динамическое зрение токенов
+        </label>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4">
+          Токены видят вокруг себя, чужие видны только если попали в свет
+        </div>
+      </div>
+
+      <div class="fog-actions">
+        <button onclick="selectAllFog(true)">Все</button>
+        <button onclick="selectAllFog(false)">Никого</button>
+        <button onclick="clearFog()">☀ Всё</button>
+        <button onclick="fillFog()">🌫 Всё</button>
+      </div>
+
       <div class="panel-title">Карта</div>
       <div class="field">
         <label>Размер клетки (px)</label>
@@ -336,7 +366,6 @@
       <button class="btn-block" id="bgUploadBtn" onclick="document.getElementById('bgUpload').click()">🖼 Загрузить карту</button>
       <input type="file" id="bgUpload" accept="image/*" style="display:none" />
       <button class="btn-block" onclick="clearDrawing()">🗑 Очистить рисунок</button>
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">Туман настраивается в панели <b style="color:var(--gold2)">справа сверху над доской</b> — индивидуально для каждого игрока.</div>
 
       <div class="panel-title">NPC</div>
       <button class="btn-block primary" onclick="addNpc()">+ Создать NPC</button>
@@ -405,40 +434,6 @@
       <button onclick="zoomBy(1.2)">+</button>
       <button onclick="zoomBy(0.8)">−</button>
       <button onclick="resetView()" title="Сброс вида">⊙</button>
-    </div>
-    <div id="fogCtl">
-      <div class="fog-title">🌫 Туман войны</div>
-      <div class="fog-hint">Выбери игроков и рисуй кистью — правки применятся только к ним</div>
-      <div id="fogChips"></div>
-
-      <div style="display:flex;gap:4px;margin:8px 0">
-        <button class="fog-tool-btn" data-tool="fog-reveal" title="Открыть кистью">☀ Открыть</button>
-        <button class="fog-tool-btn" data-tool="fog-hide" title="Скрыть кистью">🌫 Скрыть</button>
-      </div>
-      <div style="display:flex;gap:4px;margin-bottom:8px">
-        <button class="fog-tool-btn small" data-shape="circle" title="Круглая кисть">●</button>
-        <button class="fog-tool-btn small" data-shape="rect" title="Прямоугольная область">▭</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
-        Размер кисти: <span id="fogBrushVal">80</span> px
-      </div>
-      <input type="range" id="fogBrush" min="20" max="500" value="80" step="10" style="width:100%;margin-bottom:6px" />
-
-      <div style="border-top:1px solid var(--line);margin:8px 0 6px;padding-top:6px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="dynVision" /> Динамическое зрение токенов
-        </label>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4">
-          Токены видят вокруг себя, чужие видны только если попали в свет
-        </div>
-      </div>
-
-      <div class="fog-actions">
-        <button onclick="selectAllFog(true)">Все</button>
-        <button onclick="selectAllFog(false)">Никого</button>
-        <button onclick="clearFog()">☀ Всё</button>
-        <button onclick="fillFog()">🌫 Всё</button>
-      </div>
     </div>
   </div>
 
@@ -1184,7 +1179,8 @@ function setupTokenDrag(el, t){
   let sx,sy, ox,oy, dragging=false;
   el.addEventListener("pointerdown",(e)=>{
     if(e.button!==0) return;
-    if(currentTool!=="select" && role==="master") return;
+    // Allow dragging tokens with select tool (master) or own tokens (player)
+    if(role==="master" && currentTool!=="select") return;
     e.stopPropagation();
     dragging=true;
     el.classList.add("dragging");
@@ -1282,6 +1278,54 @@ let fogRectStart = null;
 let fogBrushShape = "circle"; // "circle" | "rect"
 let pendingImage = null; // {img, w, h, scale:1} для инструмента изображение
 
+// Поиск рисунка под курсором (для перетаскивания в режиме "Выбор")
+function findDrawingAt(p, tolerance){
+  // Проверяем в обратном порядке (сверху вниз)
+  for(let i=state.drawings.length-1; i>=0; i--){
+    const d = state.drawings[i];
+    if(d.type==="stroke"){
+      // Проверяем расстояние до любой точки штриха
+      for(const pt of d.points){
+        if(Math.hypot(pt.x - p.x, pt.y - p.y) < (d.size/2 + tolerance)){
+          return { ...d, id:i };
+        }
+      }
+    } else if(d.type==="shape"){
+      if(d.shape==="rect"){
+        if(p.x >= d.x - tolerance && p.x <= d.x + d.w + tolerance &&
+           p.y >= d.y - tolerance && p.y <= d.y + d.h + tolerance){
+          return { ...d, id:i };
+        }
+      } else if(d.shape==="circle"){
+        if(Math.hypot(p.x - d.x, p.y - d.y) <= d.r + tolerance){
+          return { ...d, id:i };
+        }
+      } else if(d.shape==="line"){
+        // Расстояние до линии
+        const x1=d.x1, y1=d.y1, x2=d.x2, y2=d.y2;
+        const A = p.x - x1, B = p.y - y1;
+        const C = x2 - x1, D = y2 - y1;
+        const dot = A*C + B*D;
+        const lenSq = C*C + D*D;
+        let param = lenSq !== 0 ? dot / lenSq : -1;
+        if(param < 0) param = 0;
+        else if(param > 1) param = 1;
+        const xx = x1 + param * C;
+        const yy = y1 + param * D;
+        if(Math.hypot(p.x - xx, p.y - yy) < d.size/2 + tolerance){
+          return { ...d, id:i };
+        }
+      }
+    } else if(d.type==="image"){
+      if(p.x >= d.x - tolerance && p.x <= d.x + d.w + tolerance &&
+         p.y >= d.y - tolerance && p.y <= d.y + d.h + tolerance){
+        return { ...d, id:i };
+      }
+    }
+  }
+  return null;
+}
+
 function setTool(name){
   currentTool = name;
   document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("active", b.dataset.tool===name));
@@ -1305,15 +1349,38 @@ function boardCoords(e){
   return {x,y};
 }
 
+// Переменные для перетаскивания рисунков в режиме "Выбор"
+let selectDrag = { active:false, drawingId:null, startX:0, startY:0, origX:0, origY:0, origPoints:null };
+
 boardScroll.addEventListener("pointerdown",(e)=>{
   if(e.target.closest(".token")) return;
   if(e.button===1 || spaceHeld){ startPan(e); return; }
   if(role!=="master") return;
-  if(currentTool==="select") return;
 
   const p = boardCoords(e);
   const color = document.getElementById("drawColor").value;
   const size = parseInt(document.getElementById("drawSize").value);
+
+  if(currentTool==="select"){
+    // Попытка найти рисунок под курсором для перетаскивания
+    const drawing = findDrawingAt(p, size);
+    if(drawing){
+      selectDrag.active = true;
+      selectDrag.drawingId = drawing.id;
+      selectDrag.startX = p.x;
+      selectDrag.startY = p.y;
+      selectDrag.origX = drawing.x || 0;
+      selectDrag.origY = drawing.y || 0;
+      if(drawing.type==="stroke"){
+        selectDrag.origPoints = drawing.points.map(pt=>({x:pt.x, y:pt.y}));
+      }
+      boardScroll.setPointerCapture(e.pointerId);
+      return;
+    }
+    // Если не попали в рисунок — разрешаем панорамирование
+    startPan(e);
+    return;
+  }
 
   if(currentTool==="draw"){
     drawing=true;
@@ -1432,6 +1499,23 @@ boardScroll.addEventListener("pointermove",(e)=>{
     ctx.globalAlpha = 0.7;
     ctx.drawImage(quickImage.img, p.x - quickImage.w/2 * quickImage.scale, p.y - quickImage.h/2 * quickImage.scale, quickImage.w * quickImage.scale, quickImage.h * quickImage.scale);
     ctx.restore();
+  } else if(currentTool==="select" && selectDrag.active){
+    // Перетаскивание рисунка
+    const d = state.drawings[selectDrag.drawingId];
+    if(d){
+      const dx = p.x - selectDrag.startX;
+      const dy = p.y - selectDrag.startY;
+      if(d.type==="stroke"){
+        d.points.forEach((pt, i)=>{
+          pt.x = selectDrag.origPoints[i].x + dx;
+          pt.y = selectDrag.origPoints[i].y + dy;
+        });
+      } else {
+        d.x = selectDrag.origX + dx;
+        d.y = selectDrag.origY + dy;
+      }
+      drawDrawings();
+    }
   }
 });
 
@@ -1476,6 +1560,14 @@ boardScroll.addEventListener("pointerup",(e)=>{
     drawing=false;
     // фог уже добавляли в move, синхронизируем
     applyPatch({fog: state.fog});
+  } else if(currentTool==="select" && selectDrag.active){
+    // Завершение перетаскивания рисунка
+    const d = state.drawings[selectDrag.drawingId];
+    if(d){
+      applyPatch({drawings: state.drawings});
+    }
+    selectDrag.active = false;
+    selectDrag.drawingId = null;
   }
 });
 
