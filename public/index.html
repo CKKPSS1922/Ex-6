@@ -309,12 +309,22 @@
         </select>
       </div>
       <div class="field" id="imageField" style="display:none">
-        <label>Изображение на доске</label>
-        <button class="btn-block" onclick="document.getElementById('imageUpload').click()">🖼 Загрузить изображение</button>
+        <label>Изображение на доске (инструмент)</label>
+        <button class="btn-block" onclick="document.getElementById('imageUpload').click()">🖼 Загрузить для инструмента</button>
         <input type="file" id="imageUpload" accept="image/*" style="display:none" />
         <div id="imagePreview" style="margin-top:6px;display:none">
           <img id="imagePreviewImg" style="max-width:100%;max-height:150px;border:1px solid var(--line);border-radius:6px" />
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">Кликни на доске — размести, перетащи угол — масштаб</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Кликни на доске — размести, колёсико — масштаб</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Быстрое добавление изображений</label>
+        <button class="btn-block" onclick="document.getElementById('quickImageUpload').click()">➕ Добавить изображение на доску</button>
+        <input type="file" id="quickImageUpload" accept="image/*" style="display:none" />
+        <div id="quickImagePreview" style="margin-top:6px;display:none">
+          <img id="quickImagePreviewImg" style="max-width:100%;max-height:100px;border:1px solid var(--line);border-radius:6px" />
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Кликай по доске — ставь копии. Esc — отмена</div>
         </div>
       </div>
 
@@ -1278,8 +1288,10 @@ function setTool(name){
   document.querySelectorAll(".fog-tool-btn[data-tool]").forEach(b=>b.classList.toggle("active", b.dataset.tool===name));
   const sf = document.getElementById("shapeField");
   const imf = document.getElementById("imageField");
+  const qip = document.getElementById("quickImagePreview");
   if(sf) sf.style.display = (name==="shape")?"block":"none";
   if(imf) imf.style.display = (name==="image")?"block":"none";
+  if(qip) qip.style.display = (name==="quick-image" && quickImage)?"block":"none";
   boardScroll.style.cursor = (name==="select")?"default":"crosshair";
   if(name!=="fog-hide" && name!=="fog-reveal"){
     const b = document.getElementById("brushCursor"); if(b) b.style.display="none";
@@ -1323,6 +1335,21 @@ boardScroll.addEventListener("pointerdown",(e)=>{
         y: p.y - pendingImage.h/2 * pendingImage.scale,
         w: pendingImage.w * pendingImage.scale,
         h: pendingImage.h * pendingImage.scale
+      };
+      state.drawings.push(obj);
+      applyPatch({drawings: state.drawings});
+      drawDrawings();
+    }
+  } else if(currentTool==="quick-image"){
+    if(quickImage){
+      // Размещаем копию изображения на доске (остаёмся в режиме для следующей копии)
+      const obj = {
+        type:"image",
+        src: quickImage.src,
+        x: p.x - quickImage.w/2 * quickImage.scale,
+        y: p.y - quickImage.h/2 * quickImage.scale,
+        w: quickImage.w * quickImage.scale,
+        h: quickImage.h * quickImage.scale
       };
       state.drawings.push(obj);
       applyPatch({drawings: state.drawings});
@@ -1396,6 +1423,14 @@ boardScroll.addEventListener("pointermove",(e)=>{
     const cx = p.x + pendingImage.w/2 * pendingImage.scale;
     const cy = p.y + pendingImage.h/2 * pendingImage.scale;
     ctx.fillRect(cx - 6/view.zoom, cy - 6/view.zoom, 12/view.zoom, 12/view.zoom);
+    ctx.restore();
+  } else if(currentTool==="quick-image" && quickImage){
+    // preview: рисуем изображение за курсором (без масштабирования, просто копии)
+    drawDrawings();
+    const ctx = drawCanvas.getContext("2d");
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.drawImage(quickImage.img, p.x - quickImage.w/2 * quickImage.scale, p.y - quickImage.h/2 * quickImage.scale, quickImage.w * quickImage.scale, quickImage.h * quickImage.scale);
     ctx.restore();
   }
 });
@@ -1485,11 +1520,13 @@ function eraseAt(p, size){
 }
 
 async function clearDrawing(){
-  const ok = await dlgConfirm("Очистить рисунок", "Стереть все нарисованные линии и фигуры?");
+  const ok = await dlgConfirm("Очистить рисунок", "Стереть все нарисованные линии, фигуры и фоновую карту?");
   if(!ok) return;
   state.drawings = [];
   drawDrawings();
   applyPatch({drawings: state.drawings});
+  // Также очищаем фоновую карту
+  clearBg();
 }
 
 // ---------- Туман (индивидуальный для каждого игрока) ----------
@@ -1673,7 +1710,6 @@ document.getElementById("imageUpload")?.addEventListener("change",(e)=>{
         h: img.height,
         scale: 1
       };
-      // Показываем превью
       const preview = document.getElementById("imagePreview");
       const previewImg = document.getElementById("imagePreviewImg");
       if(preview && previewImg){
@@ -1685,6 +1721,47 @@ document.getElementById("imageUpload")?.addEventListener("change",(e)=>{
     img.src = r.result;
   };
   r.readAsDataURL(f);
+});
+
+// ---------- Quick Image upload (быстрое добавление множественных копий) ----------
+let quickImage = null; // {img, src, w, h, scale:1}
+document.getElementById("quickImageUpload")?.addEventListener("change",(e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>{
+      quickImage = {
+        img: img,
+        src: r.result,
+        w: img.width,
+        h: img.height,
+        scale: 1
+      };
+      const preview = document.getElementById("quickImagePreview");
+      const previewImg = document.getElementById("quickImagePreviewImg");
+      if(preview && previewImg){
+        previewImg.src = r.result;
+        preview.style.display = "block";
+      }
+      // Входим в режим размещения
+      setTool("quick-image");
+      showNotice("Режим размещения: кликай по доске — ставь копии. Esc — выход");
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(f);
+});
+
+// Выход из режима quick-image по Esc
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape" && currentTool==="quick-image"){
+    quickImage = null;
+    const preview = document.getElementById("quickImagePreview");
+    if(preview) preview.style.display = "none";
+    setTool("select");
+    showNotice("Режим добавления изображений отменён");
+  }
 });
 
 // Масштабирование загруженного изображения колесом мыши (когда инструмент "image" активен)
