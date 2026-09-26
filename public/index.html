@@ -351,10 +351,6 @@
         <label>Цвет токена</label>
         <input type="color" id="myColor" />
       </div>
-      <div class="field">
-        <label>Размер токена: <span id="mySizeVal">50</span> px</label>
-        <input type="range" id="mySize" min="20" max="150" value="50" />
-      </div>
       <button class="btn-block" onclick="document.getElementById('myAvatarUpload').click()">🖼 Сменить аватар</button>
       <input type="file" id="myAvatarUpload" accept="image/*" style="display:none" />
       <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">
@@ -362,7 +358,8 @@
       </div>
 
       <div class="panel-title">Подсказки</div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+      <button class="btn-block" onclick="toggleHints()" style="margin-bottom:6px;font-size:11px" id="hintsBtn">💡 Показать подсказки</button>
+      <div id="hintsContent" style="display:none;font-size:11px;color:var(--muted);line-height:1.6">
         • Перетаскивайте токен мышью<br>
         • Колесо мыши — масштаб<br>
         • Средняя кнопка / пробел + перетаскивание — сдвиг<br>
@@ -434,7 +431,8 @@
     <div class="tab-content active" data-tab="chat">
       <div id="chatMessages"></div>
       <div id="chatInputWrap">
-        <div class="hints">
+        <button class="btn-block" onclick="toggleChatHints()" style="margin-bottom:6px;font-size:11px" id="chatHintsBtn">💡 Показать подсказки чата</button>
+        <div id="chatHintsContent" class="hints" style="display:none">
           <b style="color:var(--gold2)">/r 1d20+3</b> — бросок · <b style="color:var(--gold2)">/w сообщение</b> — приватно мастеру
         </div>
         <label class="pm-toggle" id="pmToggleWrap" style="display:none">
@@ -1916,13 +1914,10 @@ function setupUI(){
   if(role==="player"){
     const nm = document.getElementById("myName");
     const cl = document.getElementById("myColor");
-    const sz = document.getElementById("mySize");
     const t = state.tokens[me.id];
     if(t){
       nm.value = t.name;
       cl.value = t.color;
-      sz.value = t.size;
-      document.getElementById("mySizeVal").textContent = t.size;
     }
     let saveTimer;
     const saveMe = ()=>{
@@ -1932,8 +1927,7 @@ function setupUI(){
         if(!tt) return;
         tt.name = nm.value.trim() || tt.name;
         tt.color = cl.value;
-        tt.size = parseInt(sz.value)||50;
-        // visionRadius игрок НЕ меняет — только мастер
+        // visionRadius и size игрок НЕ меняет — только мастер
         state.tokens[me.id] = tt;
         me.name = tt.name; me.color = tt.color; me.avatar = tt.avatar;
         state.players[me.id] = Object.assign(state.players[me.id]||{}, {name:me.name, color:me.color, avatar:me.avatar});
@@ -1950,7 +1944,6 @@ function setupUI(){
     };
     nm.oninput = saveMe;
     cl.oninput = saveMe;
-    sz.oninput = ()=>{ document.getElementById("mySizeVal").textContent = sz.value; saveMe(); };
     document.getElementById("myAvatarUpload").onchange = (e)=>{
       const f = e.target.files[0]; if(!f) return;
       const r = new FileReader();
@@ -2302,6 +2295,24 @@ setTimeout(()=>{ if(role) broadcast({type:"hello"}); }, 300);
 window.addEventListener("beforeunload", ()=>{
   if(me){ systemMessage(`${me.name} покинул игру`); }
 });
+
+function toggleHints(){
+  const content = document.getElementById("hintsContent");
+  const btn = document.getElementById("hintsBtn");
+  if(!content || !btn) return;
+  const show = content.style.display === "none";
+  content.style.display = show ? "block" : "none";
+  btn.textContent = show ? "💡 Скрыть подсказки" : "💡 Показать подсказки";
+}
+
+function toggleChatHints(){
+  const content = document.getElementById("chatHintsContent");
+  const btn = document.getElementById("chatHintsBtn");
+  if(!content || !btn) return;
+  const show = content.style.display === "none";
+  content.style.display = show ? "block" : "none";
+  btn.textContent = show ? "💡 Скрыть подсказки чата" : "💡 Показать подсказки чата";
+}
 
 </script>
 </body>
