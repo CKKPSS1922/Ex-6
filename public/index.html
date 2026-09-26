@@ -365,7 +365,7 @@
       </div>
       <div class="field">
         <label>Стиль сетки</label>
-        <select id="gridStyle">
+        <select id="gridStyle" style="font-size:14px;padding:10px;min-height:44px">
           <option value="default">⬜ Классическая (шахматная)</option>
           <option value="forest">🌲 Лес (зелёная с деревьями)</option>
           <option value="beach">🏖 Пляж (песок с ракушками)</option>
@@ -376,6 +376,18 @@
           <option value="none">🚫 Без сетки</option>
         </select>
       </div>
+
+      <div class="panel-title">📐 Размер поля</div>
+      <div class="field">
+        <label>Ширина (px)</label>
+        <input type="number" id="boardWidth" value="2000" min="500" max="5000" step="100" style="font-size:14px;padding:10px;min-height:44px" />
+      </div>
+      <div class="field">
+        <label>Высота (px)</label>
+        <input type="number" id="boardHeight" value="1400" min="500" max="5000" step="100" style="font-size:14px;padding:10px;min-height:44px" />
+      </div>
+      <button class="btn-block primary" onclick="resizeBoard()" style="font-size:14px;padding:12px">✅ Применить размер</button>
+
       <button class="btn-block" id="bgUploadBtn" onclick="document.getElementById('bgUpload').click()">🖼 Загрузить карту</button>
       <input type="file" id="bgUpload" accept="image/*" style="display:none" />
       <button class="btn-block" onclick="clearDrawing()">🗑 Очистить рисунок</button>
@@ -963,6 +975,16 @@ function resizeBoard(){
     c.style.width = w+"px"; c.style.height = h+"px";
   }
   tokensLayer.style.width = w+"px"; tokensLayer.style.height = h+"px";
+  // Обновить значения в полях ввода
+  document.getElementById("boardWidth").value = w;
+  document.getElementById("boardHeight").value = h;
+  drawGrid();
+  drawBackground();
+  drawDrawings();
+  drawFog();
+  renderTokens();
+  applyPatch({board: state.board});
+  showNotice(`Размер поля: ${w}×${h} px`);
 }
 
 function drawBackground(){
@@ -2021,6 +2043,14 @@ document.getElementById("gridSize")?.addEventListener("change",(e)=>{
 document.getElementById("gridStyle")?.addEventListener("change",(e)=>{
   state.board.gridStyle = e.target.value;
   drawGrid(); applyPatch({board: state.board});
+});
+
+document.getElementById("boardWidth")?.addEventListener("change",(e)=>{
+  state.board.w = Math.max(500, Math.min(5000, parseInt(e.target.value)||2000));
+});
+
+document.getElementById("boardHeight")?.addEventListener("change",(e)=>{
+  state.board.h = Math.max(500, Math.min(5000, parseInt(e.target.value)||1400));
 });
 
 // ---------- NPC ----------
