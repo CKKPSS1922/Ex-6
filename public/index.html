@@ -363,6 +363,19 @@
         <label>Размер клетки (px)</label>
         <input type="number" id="gridSize" value="50" min="20" max="200" />
       </div>
+      <div class="field">
+        <label>Стиль сетки</label>
+        <select id="gridStyle">
+          <option value="default">⬜ Классическая (шахматная)</option>
+          <option value="forest">🌲 Лес (зелёная с деревьями)</option>
+          <option value="beach">🏖 Пляж (песок с ракушками)</option>
+          <option value="dungeon">🏰 Подземелье (каменная плита)</option>
+          <option value="swamp">🐊 Болото (мх и вода)</option>
+          <option value="snow">❄ Снег (белое покрытие)</option>
+          <option value="lava">🌋 Лава (трещины и жар)</option>
+          <option value="none">🚫 Без сетки</option>
+        </select>
+      </div>
       <button class="btn-block" id="bgUploadBtn" onclick="document.getElementById('bgUpload').click()">🖼 Загрузить карту</button>
       <input type="file" id="bgUpload" accept="image/*" style="display:none" />
       <button class="btn-block" onclick="clearDrawing()">🗑 Очистить рисунок</button>
@@ -485,7 +498,7 @@ let state = defaultState();
 
 function defaultState(){
   return {
-    board:{ w:2000, h:1400, gridSize:50, bg:null }, // bg = dataURL
+    board:{ w:2000, h:1400, gridSize:50, gridStyle:"default", bg:null }, // bg = dataURL
     drawings:[],       // {type,color,size,points:[{x,y}]} | shapes
     fog:{},            // {playerId: [{type:"fill"|"clear"} | {mode:"hide"|"reveal",shape:"circle"|"rect",...}]}
     tokens:{},         // {tokenId: {id,type,name,color,avatar,x,y,size,ownerId,hp?,visionRadius?}}
@@ -970,15 +983,149 @@ function drawBackground(){
 function drawGrid(){
   const ctx = gridCanvas.getContext("2d");
   ctx.clearRect(0,0,gridCanvas.width,gridCanvas.height);
+  const style = state.board.gridStyle || "default";
+  if(style==="none") return;
+  
   const g = state.board.gridSize || 50;
-  ctx.strokeStyle = "rgba(201,162,74,.18)";
+  const w = gridCanvas.width;
+  const h = gridCanvas.height;
+  
+  // Базовые цвета для каждого стиля
+  const styles = {
+    default: { line: "rgba(201,162,74,.18)", alt: "rgba(201,162,74,.08)", fill: null },
+    forest: { line: "rgba(34,139,34,.25)", alt: "rgba(34,139,34,.12)", fill: "#1a3a1a" },
+    beach: { line: "rgba(194,178,128,.3)", alt: "rgba(194,178,128,.15)", fill: "#f5e6c8" },
+    dungeon: { line: "rgba(100,100,110,.3)", alt: "rgba(100,100,110,.15)", fill: "#2a2a30" },
+    swamp: { line: "rgba(85,107,47,.25)", alt: "rgba(85,107,47,.12)", fill: "#2d3a1a" },
+    snow: { line: "rgba(200,220,255,.3)", alt: "rgba(200,220,255,.15)", fill: "#f0f8ff" },
+    lava: { line: "rgba(255,100,0,.3)", alt: "rgba(255,100,0,.15)", fill: "#3a1a0a" }
+  };
+  
+  const s = styles[style] || styles.default;
+  
+  // Заливка фона для стилей с фоном
+  if(s.fill){
+    ctx.fillStyle = s.fill;
+    ctx.fillRect(0,0,w,h);
+  }
+  
+  // Основная сетка
+  ctx.strokeStyle = s.line;
   ctx.lineWidth = 1;
-  for(let x=0;x<=gridCanvas.width;x+=g){
-    ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,gridCanvas.height); ctx.stroke();
+  for(let x=0;x<=w;x+=g){
+    ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,h); ctx.stroke();
   }
-  for(let y=0;y<=gridCanvas.height;y+=g){
-    ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(gridCanvas.width,y+.5); ctx.stroke();
+  for(let y=0;y<=h;y+=g){
+    ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(w,y+.5); ctx.stroke();
   }
+  
+  // Дополнительные детали для стилей
+  if(style==="forest"){
+    // Деревья в углах клеток
+    ctx.fillStyle = "rgba(34,100,34,.4)";
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        if(Math.random()<0.15){
+          const tx = gx + Math.random()*g*0.6 + g*0.2;
+          const ty = gy + Math.random()*g*0.6 + g*0.2;
+          drawTree(ctx, tx, ty, g*0.3);
+        }
+      }
+    }
+  } else if(style==="beach"){
+    // Ракушки/камни
+    ctx.fillStyle = "rgba(200,180,140,.5)";
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        if(Math.random()<0.1){
+          const tx = gx + Math.random()*g*0.8 + g*0.1;
+          const ty = gy + Math.random()*g*0.8 + g*0.1;
+          ctx.beginPath();
+          ctx.arc(tx, ty, Math.random()*3+1, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+  } else if(style==="dungeon"){
+    // Плиты с швами
+    ctx.strokeStyle = "rgba(60,60,70,.4)";
+    ctx.lineWidth = 1;
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        ctx.strokeRect(gx+.5, gy+.5, g, g);
+      }
+    }
+  } else if(style==="swamp"){
+    // Пузыри/водяные лилии
+    ctx.fillStyle = "rgba(100,180,100,.3)";
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        if(Math.random()<0.08){
+          const tx = gx + Math.random()*g*0.8 + g*0.1;
+          const ty = gy + Math.random()*g*0.8 + g*0.1;
+          ctx.beginPath();
+          ctx.ellipse(tx, ty, g*0.15, g*0.1, 0, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+  } else if(style==="snow"){
+    // Снежинки
+    ctx.fillStyle = "rgba(255,255,255,.6)";
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        if(Math.random()<0.12){
+          const tx = gx + Math.random()*g*0.8 + g*0.1;
+          const ty = gy + Math.random()*g*0.8 + g*0.1;
+          drawSnowflake(ctx, tx, ty, Math.random()*3+2);
+        }
+      }
+    }
+  } else if(style==="lava"){
+    // Трекщины
+    ctx.strokeStyle = "rgba(255,80,0,.5)";
+    ctx.lineWidth = 1.5;
+    for(let gx=0;gx<w;gx+=g){
+      for(let gy=0;gy<h;gy+=g){
+        if(Math.random()<0.2){
+          const tx = gx + g*0.5;
+          const ty = gy + g*0.5;
+          const len = g*0.3;
+          ctx.beginPath();
+          ctx.moveTo(tx - len/2, ty - len/2);
+          ctx.lineTo(tx + len/2, ty + len/2);
+          ctx.moveTo(tx + len/2, ty - len/2);
+          ctx.lineTo(tx - len/2, ty + len/2);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+function drawTree(ctx, x, y, size){
+  // Ствол
+  ctx.fillStyle = "rgba(100,60,30,.7)";
+  ctx.fillRect(x - size*0.1, y + size*0.3, size*0.2, size*0.5);
+  // Крона
+  ctx.fillStyle = "rgba(30,120,30,.6)";
+  ctx.beginPath();
+  ctx.moveTo(x, y - size*0.2);
+  ctx.lineTo(x + size*0.4, y + size*0.4);
+  ctx.lineTo(x - size*0.4, y + size*0.4);
+  ctx.fill();
+}
+
+function drawSnowflake(ctx, x, y, size){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const ang = i*Math.PI/3;
+    const sx = x + Math.cos(ang)*size;
+    const sy = y + Math.sin(ang)*size;
+    ctx.moveTo(x,y);
+    ctx.lineTo(sx,sy);
+  }
+  ctx.stroke();
 }
 
 function drawDrawings(){
@@ -1868,6 +2015,11 @@ boardScroll.addEventListener("wheel",(e)=>{
 
 document.getElementById("gridSize")?.addEventListener("change",(e)=>{
   state.board.gridSize = parseInt(e.target.value)||50;
+  drawGrid(); applyPatch({board: state.board});
+});
+
+document.getElementById("gridStyle")?.addEventListener("change",(e)=>{
+  state.board.gridStyle = e.target.value;
   drawGrid(); applyPatch({board: state.board});
 });
 
