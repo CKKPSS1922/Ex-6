@@ -244,18 +244,272 @@
   </div>
 </div>
 
-<!-- ============ Модалка игрока ============ -->
+<!-- ============ Модалка игрока (Карточка персонажа) ============ -->
 <div class="modal-bg" id="playerModal">
-  <div class="modal">
-    <h3>🗡️ Создание героя</h3>
-    <label>Имя персонажа</label>
-    <input type="text" id="playerName" placeholder="Например, Арагорн" maxlength="20" />
-    <label>Цвет токена</label>
-    <input type="color" id="playerColor" value="#c9a24a" />
-    <label>Изображение персонажа (необязательно)</label>
-    <input type="file" id="playerAvatar" accept="image/*" style="color:var(--muted);font-size:11px" />
-    <div class="err" id="playerErr"></div>
-    <div class="row">
+  <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto">
+    <h3>🗡️ Карточка персонажа</h3>
+    
+    <!-- Tabs -->
+    <div class="tabs" style="margin-bottom:12px">
+      <button class="active" data-cs-tab="main">📋 Основное</button>
+      <button data-cs-tab="stats">📊 Характеристики</button>
+      <button data-cs-tab="combat">⚔ Боевые</button>
+      <button data-cs-tab="skills">🎯 Навыки</button>
+      <button data-cs-tab="equip">🎒 Снаряжение</button>
+      <button data-cs-tab="spells">📜 Заклинания</button>
+      <button data-cs-tab="notes">📝 Заметки</button>
+      <button data-cs-tab="image">🖼 Образ</button>
+    </div>
+    
+    <div id="playerErr" class="err"></div>
+    
+    <!-- Основное -->
+    <div class="cs-tab-content active" data-cs-tab="main">
+      <div class="field">
+        <label>Имя персонажа *</label>
+        <input type="text" id="csName" placeholder="Например, Арагорн" maxlength="30" />
+      </div>
+      <div class="field">
+        <label>Раса</label>
+        <input type="text" id="csRace" placeholder="Человек, Эльф, Дварф, Тифлинг..." maxlength="30" />
+      </div>
+      <div class="field">
+        <label>Класс</label>
+        <input type="text" id="csClass" placeholder="Воин, Маг, Плут, Жрец..." maxlength="30" />
+      </div>
+      <div class="field">
+        <label>Уровень</label>
+        <input type="number" id="csLevel" value="1" min="1" max="20" style="width:80px" />
+      </div>
+      <div class="field">
+        <label>Мировоззрение</label>
+        <select id="csAlignment" style="width:200px">
+          <option value="">—</option>
+          <option value="LG">Законно-добрый</option>
+          <option value="NG">Нейтрально-добрый</option>
+          <option value="CG">Хаотично-добрый</option>
+          <option value="LN">Законно-нейтральный</option>
+          <option value="N">Нейтральный</option>
+          <option value="CN">Хаотично-нейтральный</option>
+          <option value="LE">Законно-злой</option>
+          <option value="NE">Нейтрально-злой</option>
+          <option value="CE">Хаотично-злой</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Предыстория</label>
+        <input type="text" id="csBackground" placeholder="Авантюрист, Солдат, Учёный..." maxlength="30" />
+      </div>
+      <div class="field">
+        <label>Игрок (ваше имя)</label>
+        <input type="text" id="csPlayerName" placeholder="Ваше имя за столом" maxlength="20" />
+      </div>
+      <div class="field">
+        <label>Цвет токена</label>
+        <input type="color" id="csColor" value="#c9a24a" />
+      </div>
+      <div class="field">
+        <label>Аватар токена (необязательно)</label>
+        <input type="file" id="csAvatar" accept="image/*" style="color:var(--muted);font-size:11px" />
+      </div>
+    </div>
+    
+    <!-- Характеристики -->
+    <div class="cs-tab-content" data-cs-tab="stats">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div class="stat-block">
+          <label>Сила (STR)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csStr" value="10" min="1" max="30" style="width:60px" />
+            <span id="csStrMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csStrSave">+0</span></label>
+        </div>
+        <div class="stat-block">
+          <label>Ловкость (DEX)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csDex" value="10" min="1" max="30" style="width:60px" />
+            <span id="csDexMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csDexSave">+0</span></label>
+        </div>
+        <div class="stat-block">
+          <label>Телосложение (CON)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csCon" value="10" min="1" max="30" style="width:60px" />
+            <span id="csConMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csConSave">+0</span></label>
+        </div>
+        <div class="stat-block">
+          <label>Интеллект (INT)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csInt" value="10" min="1" max="30" style="width:60px" />
+            <span id="csIntMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csIntSave">+0</span></label>
+        </div>
+        <div class="stat-block">
+          <label>Мудрость (WIS)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csWis" value="10" min="1" max="30" style="width:60px" />
+            <span id="csWisMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csWisSave">+0</span></label>
+        </div>
+        <div class="stat-block">
+          <label>Харизма (CHA)</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="csCha" value="10" min="1" max="30" style="width:60px" />
+            <span id="csChaMod" style="font-size:18px;font-weight:bold;color:var(--gold2);min-width:30px">+0</span>
+          </div>
+          <label style="font-size:10px;color:var(--muted)">Спасбросок: <span id="csChaSave">+0</span></label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Бонус мастерства (PB)</label>
+        <input type="number" id="csProfBonus" value="2" min="2" max="6" style="width:60px" />
+        <span style="font-size:10px;color:var(--muted);margin-left:8px">Авто: по уровню</span>
+      </div>
+    </div>
+    
+    <!-- Боевые -->
+    <div class="cs-tab-content" data-cs-tab="combat">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div class="field">
+          <label>Макс. HP</label>
+          <input type="number" id="csMaxHP" value="10" min="1" max="999" />
+        </div>
+        <div class="field">
+          <label>Текущие HP</label>
+          <input type="number" id="csCurHP" value="10" min="0" max="999" />
+        </div>
+        <div class="field">
+          <label>Временные HP</label>
+          <input type="number" id="csTempHP" value="0" min="0" max="999" />
+        </div>
+        <div class="field">
+          <label>КД (AC)</label>
+          <input type="number" id="csAC" value="10" min="0" max="30" />
+        </div>
+        <div class="field">
+          <label>Инициатива</label>
+          <input type="number" id="csInit" value="0" min="-5" max="10" />
+        </div>
+        <div class="field">
+          <label>Скорость (фт)</label>
+          <input type="number" id="csSpeed" value="30" min="0" max="100" />
+        </div>
+        <div class="field">
+          <label>Кости хитов</label>
+          <input type="text" id="csHitDice" placeholder="1к10, 2к8..." value="1к10" />
+        </div>
+        <div class="field">
+          <label>Порог смерти</label>
+          <input type="text" id="csDeathSaves" placeholder="Успехи/провалы: 0/0" value="0/0" />
+        </div>
+      </div>
+    </div>
+    
+    <!-- Навыки -->
+    <div class="cs-tab-content" data-cs-tab="skills">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Нажмите на навык — отметит владение. Бонус = мод. хар. + PB (если владеет)</div>
+      <div id="skillsList" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px"></div>
+    </div>
+    
+    <!-- Снаряжение -->
+    <div class="cs-tab-content" data-cs-tab="equip">
+      <div class="field">
+        <label>Оружие и атаки (по строкам)</label>
+        <textarea id="csWeapons" rows="4" placeholder="Длинный меч +5, 1к8+3 руб.&#10;Длинный лук +5, 1к8+3 кол."></textarea>
+      </div>
+      <div class="field">
+        <label>Снаряжение и предметы</label>
+        <textarea id="csEquipment" rows="4" placeholder="Кольчужная броня, рюкзак, факелы (10), еда (10 дней)..."></textarea>
+      </div>
+      <div class="field">
+        <label>Деньги (з/с/м)</label>
+        <div style="display:flex;gap:10px">
+          <input type="number" id="csGold" value="0" min="0" placeholder="з" style="width:80px" />
+          <input type="number" id="csSilver" value="0" min="0" placeholder="с" style="width:80px" />
+          <input type="number" id="csCopper" value="0" min="0" placeholder="м" style="width:80px" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Черты и способности</label>
+        <textarea id="csFeatures" rows="4" placeholder="Черта расы, черта класса, предыстория..."></textarea>
+      </div>
+    </div>
+    
+    <!-- Заклинания -->
+    <div class="cs-tab-content" data-cs-tab="spells">
+      <div class="field">
+        <label>Класс заклинателя</label>
+        <input type="text" id="csSpellClass" placeholder="Маг, Жрец, Друид, Бард..." />
+      </div>
+      <div class="field">
+        <label>Базовая хар-ка</label>
+        <select id="csSpellAbility">
+          <option value="int">Интеллект</option>
+          <option value="wis">Мудрость</option>
+          <option value="cha">Харизма</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Слово заклинаний (DC)</label>
+        <input type="number" id="csSpellDC" value="13" min="10" max="20" />
+      </div>
+      <div class="field">
+        <label>Бонус атаки заклинанием</label>
+        <input type="number" id="csSpellAtk" value="5" min="0" max="15" />
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Заклинания по уровням (по строкам, формат: «Название — описание»)</div>
+      <div class="field">
+        <label>Заговоры (0)</label>
+        <textarea id="csSpells0" rows="2" placeholder="Магический огонёк —(evocation) 1d10 огня&#10;Маловниение —(divination)"></textarea>
+      </div>
+      <div class="field">
+        <label>1-й уровень</label>
+        <textarea id="csSpells1" rows="2" placeholder="Волшебная стрела —(evocation) 3 дротика 1к4+1&#10;Щит —(abjuration) +5 КД реакцией"></textarea>
+      </div>
+      <div class="field">
+        <label>2-й уровень</label>
+        <textarea id="csSpells2" rows="2" placeholder=""></textarea>
+      </div>
+      <div class="field">
+        <label>3-й уровень</label>
+        <textarea id="csSpells3" rows="2" placeholder=""></textarea>
+      </div>
+      <div class="field">
+        <label>4-9 уровни</label>
+        <textarea id="csSpellsHigh" rows="3" placeholder=""></textarea>
+      </div>
+    </div>
+    
+    <!-- Заметки -->
+    <div class="cs-tab-content" data-cs-tab="notes">
+      <div class="field">
+        <label>Личные заметки / РП</label>
+        <textarea id="csNotes" rows="8" placeholder="Характер, идеалы, привязанности, слабости, история..."></textarea>
+      </div>
+    </div>
+    
+    <!-- Образ карточки -->
+    <div class="cs-tab-content" data-cs-tab="image">
+      <div class="field">
+        <label>Фон карточки (PNG/JPG, будет под полями)</label>
+        <input type="file" id="csCardImage" accept="image/*" style="color:var(--muted);font-size:11px" />
+        <div id="csCardImagePreview" style="margin-top:8px;display:none">
+          <img id="csCardImagePreviewImg" style="max-width:100%;max-height:200px;border:1px solid var(--line);border-radius:6px" />
+          <button class="btn-block" onclick="clearCardImage()" style="margin-top:6px">🗑 Удалить фон</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">
+        Фон будет отображаться под полями карточки. Рекомендуется PNG с прозрачностью для полей ввода.
+      </div>
+    </div>
+    
+    <div class="row" style="margin-top:16px">
       <button class="btn ghost" onclick="closeModal('playerModal')">Отмена</button>
       <button class="btn primary" onclick="loginPlayer()">Войти в игру</button>
     </div>
@@ -408,28 +662,18 @@
     </div>
 
     <div id="playerTools" style="display:none">
-      <div class="panel-title">Ваш герой</div>
+      <div class="panel-title">🗡️ Ваш герой</div>
       <div id="myHero" style="display:flex;align-items:center;gap:10px;padding:10px;background:#100819;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
-        <div id="myHeroAvatar" style="width:44px;height:44px;border-radius:50%;border:3px solid;background-size:cover;background-position:center;flex-shrink:0"></div>
+        <div id="myHeroAvatar" style="width:48px;height:48px;border-radius:50%;border:3px solid;background-size:cover;background-position:center;flex-shrink:0"></div>
         <div style="flex:1;overflow:hidden">
-          <div id="myHeroName" style="font-size:13px;color:var(--gold2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-          <div style="font-size:10px;color:var(--muted)">Тащите себя по карте</div>
+          <div id="myHeroName" style="font-size:14px;color:var(--gold2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <div id="myHeroClass" style="font-size:11px;color:var(--muted)"></div>
         </div>
       </div>
+      <button class="btn-block primary" onclick="openCharSheet()" style="margin-bottom:8px">📋 Карточка персонажа</button>
 
-      <div class="field">
-        <label>Имя</label>
-        <input type="text" id="myName" maxlength="20" />
-      </div>
-      <div class="field">
-        <label>Цвет токена</label>
-        <input type="color" id="myColor" />
-      </div>
-      <button class="btn-block" onclick="document.getElementById('myAvatarUpload').click()">🖼 Сменить аватар</button>
-      <input type="file" id="myAvatarUpload" accept="image/*" style="display:none" />
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">
-        👁 Радиус зрения настраивает только мастер
-      </div>
+      <div class="panel-title">Краткая инфа</div>
+      <div id="heroQuickStats" style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:8px"></div>
 
       <div class="panel-title">Подсказки</div>
       <button class="btn-block" onclick="toggleHints()" style="margin-bottom:6px;font-size:11px" id="hintsBtn">💡 Показать подсказки</button>
@@ -805,21 +1049,325 @@ function loginMaster(){
   enterApp();
 }
 
+// --- Character Sheet Helpers ---
+function mod(val){ return Math.floor((val-10)/2); }
+function saveMod(val, prof){ return mod(val) + (prof?profBonus:0); }
+
+let charSheet = {}; // хранит полную карточку
+
+function gatherCharSheet(){
+  const prof = parseInt(document.getElementById("csProfBonus").value)||2;
+  profBonus = prof; // глобально для савеббросков
+  // Update all mods
+  ['Str','Dex','Con','Int','Wis','Cha'].forEach(a=>{
+    const v = parseInt(document.getElementById('cs'+a).value)||10;
+    const m = mod(v);
+    document.getElementById('cs'+a+'Mod').textContent = (m>=0?'+':'')+m;
+    const profCheck = document.getElementById('cs'+a+'SaveProf');
+    document.getElementById('cs'+a+'Save').textContent = (m + (profCheck?.checked?prof:0) >=0?'+':'') + (m + (profCheck?.checked?prof:0));
+  });
+  return {
+    // Main
+    name: document.getElementById('csName').value.trim(),
+    race: document.getElementById('csRace').value.trim(),
+    class: document.getElementById('csClass').value.trim(),
+    level: parseInt(document.getElementById('csLevel').value)||1,
+    alignment: document.getElementById('csAlignment').value,
+    background: document.getElementById('csBackground').value.trim(),
+    playerName: document.getElementById('csPlayerName').value.trim(),
+    color: document.getElementById('csColor').value,
+    // Stats
+    str: parseInt(document.getElementById('csStr').value)||10,
+    dex: parseInt(document.getElementById('csDex').value)||10,
+    con: parseInt(document.getElementById('csCon').value)||10,
+    int: parseInt(document.getElementById('csInt').value)||10,
+    wis: parseInt(document.getElementById('csWis').value)||10,
+    cha: parseInt(document.getElementById('csCha').value)||10,
+    profBonus: prof,
+    // Combat
+    maxHP: parseInt(document.getElementById('csMaxHP').value)||10,
+    curHP: parseInt(document.getElementById('csCurHP').value)||10,
+    tempHP: parseInt(document.getElementById('csTempHP').value)||0,
+    ac: parseInt(document.getElementById('csAC').value)||10,
+    init: parseInt(document.getElementById('csInit').value)||0,
+    speed: parseInt(document.getElementById('csSpeed').value)||30,
+    hitDice: document.getElementById('csHitDice').value.trim(),
+    deathSaves: document.getElementById('csDeathSaves').value.trim(),
+    // Skills (gather from checkboxes)
+    skills: gatherSkills(),
+    // Equipment
+    weapons: document.getElementById('csWeapons').value.trim(),
+    equipment: document.getElementById('csEquipment').value.trim(),
+    gold: parseInt(document.getElementById('csGold').value)||0,
+    silver: parseInt(document.getElementById('csSilver').value)||0,
+    copper: parseInt(document.getElementById('csCopper').value)||0,
+    features: document.getElementById('csFeatures').value.trim(),
+    // Spells
+    spellClass: document.getElementById('csSpellClass').value.trim(),
+    spellAbility: document.getElementById('csSpellAbility').value,
+    spellDC: parseInt(document.getElementById('csSpellDC').value)||13,
+    spellAtk: parseInt(document.getElementById('csSpellAtk').value)||5,
+    spells: {
+      0: splitLines(document.getElementById('csSpells0').value),
+      1: splitLines(document.getElementById('csSpells1').value),
+      2: splitLines(document.getElementById('csSpells2').value),
+      3: splitLines(document.getElementById('csSpells3').value),
+      high: splitLines(document.getElementById('csSpellsHigh').value)
+    },
+    // Notes
+    notes: document.getElementById('csNotes').value.trim(),
+    // Card image
+    cardImage: cardImageData || null
+  };
+}
+
+function splitLines(text){
+  return text.trim().split('\n').map(l=>l.trim()).filter(l=>l);
+}
+
+function gatherSkills(){
+  const skills = {};
+  document.querySelectorAll('#skillsList .skill-item').forEach(el=>{
+    const name = el.dataset.skill;
+    const prof = el.querySelector('.skill-prof').checked;
+    const ability = el.dataset.ability;
+    const val = parseInt(document.getElementById('cs'+ability.toUpperCase()).value)||10;
+    skills[name] = { prof, ability, mod: mod(val) + (prof?profBonus:0) };
+  });
+  return skills;
+}
+
+let cardImageData = null;
+let profBonus = 2;
+
 function loginPlayer(){
-  const name = document.getElementById("playerName").value.trim();
-  const color = document.getElementById("playerColor").value;
+  const name = document.getElementById("csName").value.trim();
+  const color = document.getElementById("csColor").value;
   if(!name){ document.getElementById("playerErr").textContent = "Введите имя героя"; return; }
-  const file = document.getElementById("playerAvatar").files[0];
-  const finish = (avatar)=>{
+  
+  charSheet = gatherCharSheet();
+  if(!charSheet.name){ document.getElementById("playerErr").textContent = "Имя обязательно"; return; }
+  
+  const file = document.getElementById("csAvatar").files[0];
+  const cardImgFile = document.getElementById("csCardImage").files[0];
+  
+  const finish = (avatar, cardImg)=>{
     role = "player";
-    me = { id:"p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), name, color, avatar, role:"player" };
+    me = { 
+      id:"p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), 
+      name: charSheet.name, 
+      color: charSheet.color, 
+      avatar, 
+      role:"player",
+      charSheet: charSheet
+    };
     enterApp();
   };
+  
+  let avatarData = null, cardImgData = null;
+  let done = 0;
+  const checkDone = ()=>{ if(++done===2) finish(avatarData, cardImgData); };
+  
   if(file){
     const r = new FileReader();
-    r.onload = ()=> finish(r.result);
+    r.onload = ()=>{ avatarData = r.result; checkDone(); };
     r.readAsDataURL(file);
-  } else finish(null);
+  } else checkDone();
+  
+  if(cardImgFile){
+    const r = new FileReader();
+    r.onload = ()=>{ cardImgData = r.result; checkDone(); };
+    r.readAsDataURL(cardImgFile);
+  } else checkDone();
+} else checkDone();
+}
+}
+
+// === Character Sheet UI Handlers ===
+
+// Tabs in character sheet modal
+document.querySelectorAll('#playerModal [data-cs-tab]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#playerModal [data-cs-tab]').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.cs-tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector('.cs-tab-content[data-cs-tab="'+btn.dataset.csTab+'"]').classList.add('active');
+  });
+});
+
+// Stat input handlers — update modifiers live
+['Str','Dex','Con','Int','Wis','Cha'].forEach(a=>{
+  const input = document.getElementById('cs'+a);
+  if(input){
+    input.addEventListener('input',()=>{
+      const v = parseInt(input.value)||10;
+      const m = mod(v);
+      document.getElementById('cs'+a+'Mod').textContent = (m>=0?'+':'')+m;
+    });
+  }
+});
+
+// Proficiency bonus change
+document.getElementById('csProfBonus')?.addEventListener('input',()=>{
+  profBonus = parseInt(document.getElementById('csProfBonus').value)||2;
+});
+
+// Render skills list
+function renderSkillsList(){
+  const container = document.getElementById('skillsList');
+  if(!container) return;
+  const skills = [
+    {name:'Акробатика', ability:'Dex'},
+    {name:'Анализ', ability:'Int'},
+    {name:'Атлетика', ability:'Str'},
+    {name:'Внимательность', ability:'Wis'},
+    {name:'Выживание', ability:'Wis'},
+    {name:'Выступление', ability:'Cha'},
+    {name:'Запугивание', ability:'Cha'},
+    {name:'История', ability:'Int'},
+    {name:'Ловкость рук', ability:'Dex'},
+    {name:'Магия', ability:'Int'},
+    {name:'Медицина', ability:'Wis'},
+    {name:'Навигация', ability:'Wis'},
+    {name:'Обман', ability:'Cha'},
+    {name:'Природа', ability:'Int'},
+    {name:'Проницательность', ability:'Wis'},
+    {name:'Религия', ability:'Int'},
+    {name:'Скрытность', ability:'Dex'},
+    {name:'Убеждение', ability:'Cha'},
+    {name:'Уход за животными', ability:'Wis'},
+  ];
+  container.innerHTML = '';
+  skills.forEach(s=>{
+    const val = parseInt(document.getElementById('cs'+s.ability).value)||10;
+    const m = mod(val);
+    const el = document.createElement('label');
+    el.className = 'skill-item';
+    el.dataset.skill = s.name;
+    el.dataset.ability = s.ability;
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.gap = '8px';
+    el.style.padding = '6px 8px';
+    el.style.background = '#100819';
+    el.style.border = '1px solid var(--line)';
+    el.style.borderRadius = '6px';
+    el.style.cursor = 'pointer';
+    el.style.fontSize = '12px';
+    el.innerHTML = `
+      <input type="checkbox" class="skill-prof" style="width:16px;height:16px;accent-color:var(--gold)">
+      <span style="flex:1;text-align:left">${s.name}</span>
+      <span style="color:var(--gold2);font-weight:bold;min-width:30px">${m>=0?'+':''}${m}</span>
+      <span style="color:var(--muted);font-size:10px">(${s.ability})</span>
+    `;
+    container.appendChild(el);
+  });
+}
+
+// Update skill mods when stats change
+['Str','Dex','Con','Int','Wis','Cha'].forEach(a=>{
+  const input = document.getElementById('cs'+a);
+  if(input){
+    input.addEventListener('input',()=>{
+      const v = parseInt(input.value)||10;
+      const m = mod(v);
+      document.getElementById('cs'+a+'Mod').textContent = (m>=0?'+':'')+m;
+      // Update skill mods display
+      document.querySelectorAll('.skill-item[data-ability="'+a+'"] span:nth-child(3)').forEach(sp=>{
+        const prof = sp.closest('.skill-item').querySelector('.skill-prof').checked;
+        sp.textContent = (m + (prof?profBonus:0) >=0?'+':'') + (m + (prof?profBonus:0));
+      });
+    });
+  }
+});
+
+// Card image preview
+document.getElementById('csCardImage')?.addEventListener('change',(e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    cardImageData = r.result;
+    const prev = document.getElementById('csCardImagePreview');
+    const img = document.getElementById('csCardImagePreviewImg');
+    if(prev && img){
+      img.src = r.result;
+      prev.style.display = 'block';
+    }
+  };
+  r.readAsDataURL(f);
+});
+
+function clearCardImage(){
+  cardImageData = null;
+  const prev = document.getElementById('csCardImagePreview');
+  const inp = document.getElementById('csCardImage');
+  if(prev) prev.style.display = 'none';
+  if(inp) inp.value = '';
+}
+
+// Initialize character sheet modal when opened
+function openPlayerModal(){
+  document.getElementById("playerModal").classList.add("show");
+  document.getElementById("csName").focus();
+  // Reset form
+  document.getElementById("csName").value = '';
+  document.getElementById("csRace").value = '';
+  document.getElementById("csClass").value = '';
+  document.getElementById("csLevel").value = '1';
+  document.getElementById("csAlignment").value = '';
+  document.getElementById("csBackground").value = '';
+  document.getElementById("csPlayerName").value = '';
+  document.getElementById("csColor").value = '#c9a24a';
+  document.getElementById("csAvatar").value = '';
+  document.getElementById("csCardImage").value = '';
+  clearCardImage();
+  // Stats
+  ['Str','Dex','Con','Int','Wis','Cha'].forEach(a=>{
+    document.getElementById('cs'+a).value = '10';
+    document.getElementById('cs'+a+'Mod').textContent = '+0';
+  });
+  document.getElementById('csProfBonus').value = '2';
+  profBonus = 2;
+  // Combat
+  document.getElementById('csMaxHP').value = '10';
+  document.getElementById('csCurHP').value = '10';
+  document.getElementById('csTempHP').value = '0';
+  document.getElementById('csAC').value = '10';
+  document.getElementById('csInit').value = '0';
+  document.getElementById('csSpeed').value = '30';
+  document.getElementById('csHitDice').value = '1к10';
+  document.getElementById('csDeathSaves').value = '0/0';
+  // Equipment
+  document.getElementById('csWeapons').value = '';
+  document.getElementById('csEquipment').value = '';
+  document.getElementById('csGold').value = '0';
+  document.getElementById('csSilver').value = '0';
+  document.getElementById('csCopper').value = '0';
+  document.getElementById('csFeatures').value = '';
+  // Spells
+  document.getElementById('csSpellClass').value = '';
+  document.getElementById('csSpellAbility').value = 'int';
+  document.getElementById('csSpellDC').value = '13';
+  document.getElementById('csSpellAtk').value = '5';
+  document.getElementById('csSpells0').value = '';
+  document.getElementById('csSpells1').value = '';
+  document.getElementById('csSpells2').value = '';
+  document.getElement byId('csSpells3').value = '';
+  document.getElementById('csSpellsHigh').value = '';
+  // Notes
+  document.getElementById('csNotes').value = '';
+  // Image
+  clearCardImage();
+  // Skills
+  renderSkillsList();
+  // Switch to first tab
+  document.querySelectorAll('#playerModal [data-cs-tab]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.cs-tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#playerModal [data-cs-tab="main"]').classList.add('active');
+  document.querySelector('.cs-tab-content[data-cs-tab="main"]').classList.add('active');
+  document.getElementById("playerErr").textContent = '';
+  document.getElementById("playerModal").classList.add("show");
 }
 
 function enterApp(){
@@ -837,11 +1385,7 @@ function enterApp(){
     document.getElementById("pmToggleWrap").style.display="flex";
 
     // Обновим hero panel
-    document.getElementById("myHeroName").textContent = me.name;
-    const av = document.getElementById("myHeroAvatar");
-    av.style.borderColor = me.color;
-    if(me.avatar) av.style.backgroundImage = `url(${me.avatar})`;
-    else av.style.background = me.color;
+    updateHeroPanel();
   }
 
   // Регистрируем присутствие И СРАЗУ создаём токен, чтобы игрок его увидел без задержки
@@ -2335,6 +2879,111 @@ document.addEventListener("click", ()=>{
   }
 });
 
+});
+
+// ---------- Hero Panel & Character Sheet ----------
+function updateHeroPanel(){
+  if(!me || !me.charSheet) return;
+  const cs = me.charSheet;
+  document.getElementById("myHeroName").textContent = cs.name || me.name;
+  document.getElementById("myHeroClass").textContent = [cs.race, cs.class, `Ур.${cs.level||1}`].filter(Boolean).join(' · ');
+  const av = document.getElementById("myHeroAvatar");
+  av.style.borderColor = cs.color || me.color;
+  if(me.avatar) av.style.backgroundImage = `url(${me.avatar})`;
+  else av.style.background = cs.color || me.color;
+  // Quick stats
+  const hp = `${cs.curHP||0}/${cs.maxHP||0} HP`;
+  const ac = `КД ${cs.ac||10}`;
+  const spd = `${cs.speed||30} фт`;
+  const init = `Иниц ${cs.init>=0?'+':''}${cs.init||0}`;
+  document.getElementById("heroQuickStats").innerHTML = `
+    ${hp} | ${ac} | ${spd} | ${init}<br>
+    STR ${cs.str||10}(${mod(cs.str||10)>=0?'+':''}${mod(cs.str||10)}) 
+    DEX ${cs.dex||10}(${mod(cs.dex||10)>=0?'+':''}${mod(cs.dex||10)}) 
+    CON ${cs.con||10}(${mod(cs.con||10)>=0?'+':''}${mod(cs.con||10)})<br>
+    INT ${cs.int||10}(${mod(cs.int||10)>=0?'+':''}${mod(cs.int||10)}) 
+    WIS ${cs.wis||10}(${mod(cs.wis||10)>=0?'+':''}${mod(cs.wis||10)}) 
+    CHA ${cs.cha||10}(${mod(cs.cha||10)>=0?'+':''}${mod(cs.cha||10)})
+  `;
+}
+
+function openCharSheet(){
+  if(!me || !me.charSheet) return;
+  const cs = me.charSheet;
+  // Fill form with current data
+  document.getElementById("csName").value = cs.name || '';
+  document.getElementById("csRace").value = cs.race || '';
+  document.getElementById("csClass").value = cs.class || '';
+  document.getElementById("csLevel").value = cs.level || 1;
+  document.getElementById("csAlignment").value = cs.alignment || '';
+  document.getElementById("csBackground").value = cs.background || '';
+  document.getElementById("csPlayerName").value = cs.playerName || '';
+  document.getElementById("csColor").value = cs.color || me.color;
+  // Stats
+  ['Str','Dex','Con','Int','Wis','Cha'].forEach(a=>{
+    document.getElementById('cs'+a).value = cs[a.toLowerCase()] || 10;
+    const m = mod(cs[a.toLowerCase()] || 10);
+    document.getElementById('cs'+a+'Mod').textContent = (m>=0?'+':'')+m;
+  });
+  document.getElementById('csProfBonus').value = cs.profBonus || 2;
+  profBonus = cs.profBonus || 2;
+  // Combat
+  document.getElementById('csMaxHP').value = cs.maxHP || 10;
+  document.getElementById('csCurHP').value = cs.curHP || 10;
+  document.getElementById('csTempHP').value = cs.tempHP || 0;
+  document.getElementById('csAC').value = cs.ac || 10;
+  document.getElementById('csInit').value = cs.init || 0;
+  document.getElementById('csSpeed').value = cs.speed || 30;
+  document.getElementById('csHitDice').value = cs.hitDice || '1к10';
+  document.getElementById('csDeathSaves').value = cs.deathSaves || '0/0';
+  // Equipment
+  document.getElementById('csWeapons').value = cs.weapons || '';
+  document.getElementById('csEquipment').value = cs.equipment || '';
+  document.getElementById('csGold').value = cs.gold || 0;
+  document.getElementById('csSilver').value = cs.silver || 0;
+  document.getElementById('csCopper').value = cs.copper || 0;
+  document.getElementById('csFeatures').value = cs.features || '';
+  // Spells
+  document.getElementById('csSpellClass').value = cs.spellClass || '';
+  document.getElementById('csSpellAbility').value = cs.spellAbility || 'int';
+  document.getElementById('csSpellDC').value = cs.spellDC || 13;
+  document.getElementById('csSpellAtk').value = cs.spellAtk || 5;
+  document.getElementById('csSpells0').value = (cs.spells?.0||[]).join('\n');
+  document.getElementById('csSpells1').value = (cs.spells?.1||[]).join('\n');
+  document.getElementById('csSpells2').value = (cs.spells?.2||[]).join('\n');
+  document.getElementById('csSpells3').value = (cs.spells?.3||[]).join('\n');
+  document.getElementById('csSpellsHigh').value = (cs.spells?.high||[]).join('\n');
+  // Notes
+  document.getElementById('csNotes').value = cs.notes || '';
+  // Skills
+  renderSkillsList();
+  if(cs.skills){
+    Object.entries(cs.skills).forEach(([name,data])=>{
+      const el = document.querySelector(`.skill-item[data-skill="${name}"]`);
+      if(el){
+        el.querySelector('.skill-prof').checked = data.prof;
+      }
+    });
+  }
+  // Card image
+  if(cs.cardImage){
+    cardImageData = cs.cardImage;
+    const prev = document.getElementById('csCardImagePreview');
+    const img = document.getElementById('csCardImagePreviewImg');
+    if(prev && img){
+      img.src = cs.cardImage;
+      prev.style.display = 'block';
+    }
+  }
+  // Switch to first tab
+  document.querySelectorAll('#playerModal [data-cs-tab]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.cs-tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#playerModal [data-cs-tab="main"]').classList.add('active');
+  document.querySelector('.cs-tab-content[data-cs-tab="main"]').classList.add('active');
+  document.getElementById("playerErr").textContent = '';
+  document.getElementById("playerModal").classList.add("show");
+}
+
 // ---------- UI setup ----------
 function setupUI(){
   document.querySelectorAll(".tool").forEach(b=>{
@@ -2512,8 +3161,16 @@ function renderPlayers(){
     const info = document.createElement("div"); info.style.flex="1";
     const dot = online ? '<span style="color:#7fd18a">●</span>' : '<span style="color:#666">●</span>';
     info.innerHTML = `<div style="font-size:13px;color:${p.color}">${dot} ${escapeHtml(p.name)}${isMe?' <span style="color:var(--muted);font-size:10px">(вы)</span>':''}</div>
-      <div style="font-size:10px;color:var(--muted)">${p.role==="master"?"👑 Мастер":"🗡️ Игрок"} · ${online?"онлайн":"офлайн"}</div>`;
+      <div style="font-size:10px;color:var(--muted)">${p.role==="master"?"👑 Мастер":"🗡️ Игрок"} · ${online?"онлайн":"офлайн"}${p.charSheet?' · 📋 Карточка':''}</div>`;
     row.appendChild(info);
+    // Клик по строке (мастер) — показать карточку персонажа
+    if(role==="master" && p.charSheet && p.role==="player"){
+      row.style.cursor = "pointer";
+      row.onclick = (e)=>{
+        if(e.target.tagName==="BUTTON") return;
+        showCharSheet(p);
+      };
+    }
     // Мастер может выгнать любого игрока (кроме себя и других мастеров)
     if(role==="master" && p.role==="player" && !isMe){
       const kickBtn = document.createElement("button");
@@ -2636,6 +3293,69 @@ function dlgConfirm(title, body){
     dlg.querySelector("#dlgNo").onclick=()=>{ dlgClose(); res(false); };
   });
 }
+document.getElementById("playerModal").classList.add("show");
+}
+
+function showCharSheet(p){
+  if(!p || !p.charSheet) return;
+  const cs = p.charSheet;
+  // Create a modal-like view for master to view player's sheet
+  const dlg = document.getElementById("dlg");
+  dlg.innerHTML = `
+    <h3>📋 Карточка: ${escapeHtml(cs.name)}</h3>
+    <div class="fields" style="max-height:70vh;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+        <div><label>Раса</label><div>${escapeHtml(cs.race||'—')}</div></div>
+        <div><label>Класс / Уровень</label><div>${escapeHtml(cs.class||'—')} ${cs.level?`Ур.${cs.level}`:''}</div></div>
+        <div><label>Мировоззрение</label><div>${escapeHtml(cs.alignment||'—')}</div></div>
+        <div><label>Предыстория</label><div>${escapeHtml(cs.background||'—')}</div></div>
+        <div><label>Игрок</label><div>${escapeHtml(cs.playerName||'—')}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px">
+        ${['Str','Dex','Con','Int','Wis','Cha'].map(a=>`
+          <div style="text-align:center;padding:8px;background:#100819;border:1px solid var(--line);border-radius:6px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">${a}</div>
+            <div style="font-size:20px;font-weight:bold;color:var(--gold2)">${cs[a.toLowerCase()]||10}</div>
+            <div style="font-size:14px;color:var(--gold2)">${mod(cs[a.toLowerCase()]||10)>=0?'+':''}${mod(cs[a.toLowerCase()]||10)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <div style="padding:8px;background:#100819;border:1px solid var(--line);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted)">HP</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--gold2)">${cs.curHP||0}/${cs.maxHP||0}</div>
+        </div>
+        <div style="padding:8px;background:#100819;border:1px solid var(--line);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted)">КД</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--gold2)">${cs.ac||10}</div>
+        </div>
+        <div style="padding:8px;background:#100819;border:1px solid var(--line);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted)">Скорость</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--gold2)">${cs.speed||30} фт</div>
+        </div>
+        <div style="padding:8px;background:#100819;border:1px solid var(--line);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted)">Иниц</div>
+          <div style="font-size:18px;font-weight:bold;color:var(--gold2)">${cs.init>=0?'+':''}${cs.init||0}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--gold2);margin-bottom:4px">Навыки (владение)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow-y:auto">
+          ${Object.entries(p.charSheet.skills||{}).filter(([_,d])=>d.prof).map(([name,d])=>`<span style="background:#1a0f28;border:1px solid var(--gold);color:var(--gold2);padding:2px 8px;border-radius:4px;font-size:11px">${escapeHtml(name)} (+${d.mod})</span>`).join('')}
+        </div>
+      </div>
+      ${cs.weapons?`<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--gold2);margin-bottom:4px">Оружие</div><div style="font-size:11px;color:var(--text);white-space:pre-wrap">${escapeHtml(cs.weapons)}</div></div>`:''}
+      ${cs.equipment?`<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--gold2);margin-bottom:4px">Снаряжение</div><div style="font-size:11px;color:var(--text);white-space:pre-wrap">${escapeHtml(cs.equipment)}</div></div>`:''}
+      ${cs.features?`<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--gold2);margin-bottom:4px">Черты</div><div style="font-size:11px;color:var(--text);white-space:pre-wrap">${escapeHtml(cs.features)}</div></div>`:''}
+      ${cs.notes?`<div><div style="font-size:11px;color:var(--gold2);margin-bottom:4px">Заметки</div><div style="font-size:11px;color:var(--text);white-space:pre-wrap">${escapeHtml(cs.notes)}</div></div>`:''}
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="dlgClose">Закрыть</button>
+    </div>`;
+  document.getElementById("dlgBg").classList.add("show");
+  dlg.querySelector("#dlgClose").onclick=()=>{ dlgClose(); };
+}
+
 function dlgAlert(title, body){
   return new Promise(res=>{
     const dlg = document.getElementById("dlg");
