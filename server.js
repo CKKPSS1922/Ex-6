@@ -135,21 +135,66 @@ function missingClosers(text){
   return out;
 }
 
+function looksLikeServiceAccount(obj){
+  return !!obj && typeof obj === "object" && !Array.isArray(obj)
+    && typeof obj.private_key === "string" && obj.private_key.length > 100
+    && typeof obj.client_email === "string" && obj.client_email.indexOf("@") > 0;
+}
+
 function parseServiceAccount(raw){
   const text = String(raw || "").replace(/^\uFEFF/, "").trim();
+  let obj = null, firstError = null;
   try{
-    return JSON.parse(text);
+    obj = JSON.parse(text);
   }catch(e1){
+    firstError = e1;
     const closers = missingClosers(text);
     if(closers){
       try{
-        const obj = JSON.parse(text + closers);
-        log(`☁ Ключ Firebase был обрезан — дописал «${closers}» автоматически`);
-        return obj;
-      }catch(e2){ /* ниже отдадим первую ошибку */ }
+        const repaired = JSON.parse(text + closers);
+        if(looksLikeServiceAccount(repaired)){
+          log(`☁ Ключ Firebase был обрезан — дописал «${closers}» автоматически`);
+          obj = repaired;
+        }
+      }catch(e2){ /* отдадим первую ошибку */ }
     }
-    throw new Error("не разобрать JSON сервисного аккаунта (" + e1.message + ")");
   }
+  if(!obj){
+    throw new Error("не разобрать JSON сервисного аккаунта (" + ((firstError && firstError.message) || "нет данных") + ")");
+  }
+  if(!looksLikeServiceAccount(obj)){
+    throw new Error("JSON разобран, но это не похоже на ключ сервисного аккаунта (нет private_key/client_email)");
+  }
+  return obj;
+}
+
+/**
+ * Получить нужный API firebase-admin.
+ * В версии 13+ старый («namespaced») API удалён: admin.credential / admin.apps /
+ * admin.database больше не существуют, нужен модульный импорт по подпутям.
+ */
+function loadFirebaseApi(){
+  try{
+    const appMod = require("firebase-admin/app");
+    const dbMod = require("firebase-admin/database");
+    if(appMod && appMod.initializeApp && appMod.cert && dbMod && dbMod.getDatabase){
+      return {
+        modular: true,
+        initializeApp: appMod.initializeApp,
+        cert: appMod.cert,
+        getApps: appMod.getApps || (()=> []),
+        getDatabase: dbMod.getDatabase
+      };
+    }
+  }catch(e){ /* попробуем старый API ниже */ }
+  const admin = require("firebase-admin");
+  return {
+    modular: false,
+    initializeApp: admin.initializeApp,
+    cert: (admin.credential && admin.credential.cert) || null,
+    getApps: ()=> admin.apps || [],
+    getDatabase: admin.database
+  };
 }
 
 function initFirebase(){
@@ -160,20 +205,24 @@ function initFirebase(){
     return false;
   }
   try{
-    const admin = require("firebase-admin");
     const cred = inline ? parseServiceAccount(inline) : parseServiceAccount(fs.readFileSync(file, "utf8"));
+    const fb = loadFirebaseApi();
+    if(!fb.cert || !fb.initializeApp || !fb.getDatabase){
+      throw new Error("firebase-admin не предоставил нужный API (нет cert/initializeApp/getDatabase)");
+    }
     const region = process.env.FIREBASE_REGION || "europe-west1";
     const dbUrl = process.env.FIREBASE_DB_URL ||
       (region === "us-central1"
         ? `https://${cred.project_id}-default-rtdb.firebaseio.com`
         : `https://${cred.project_id}-default-rtdb.${region}.firebasedatabase.app`);
-    if(admin.apps.length === 0){
-      admin.initializeApp({ credential: admin.credential.cert(cred), databaseURL: dbUrl });
+    if(fb.getApps().length === 0){
+      fb.initializeApp({ credential: fb.cert(cred), databaseURL: dbUrl });
     }
-    fbRef = admin.database().ref(process.env.FIREBASE_PATH || "games/vrata-sudby");
+    const fbPath = process.env.FIREBASE_PATH || "games/vrata-sudby";
+    fbRef = fb.getDatabase().ref(fbPath);
     fbReady = true;
     fbError = null;
-    log(`☁ Firebase подключён: ${dbUrl} / ${fbRef.path.toString()}`);
+    log(`☁ Firebase подключён (${fb.modular ? "модульный" : "старый"} API): ${dbUrl} / ${fbPath}`);
     return true;
   }catch(e){
     fbError = String((e && e.message) || e);
@@ -513,7 +562,9 @@ module.exports = {
   app, server, wss, bootPromise,
   __test: {
     loadSave, saveNow, scheduleSave, flushCloud, loadFromCloud, initFirebase, markDirty,
-    parseServiceAccount, missingClosers,
+    parseServiceAccount, missingClosers, loadFirebaseApi,
+    getCloudRef: ()=> fbRef,
+    getCloudError: ()=> fbError,
     getDirtyKeys: ()=> Array.from(dirtyKeys),
     clearDirty: ()=> dirtyKeys.clear(),
     setCloudRef: (ref)=>{ fbRef = ref; fbReady = !!ref; },
