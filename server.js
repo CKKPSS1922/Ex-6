@@ -93,6 +93,7 @@ function scheduleSave(){
 // ---------- Внешнее хранилище (Firebase Realtime Database) ----------
 let fbRef = null;
 let fbReady = false;
+let fbError = null;
 let cloudTimer = null;
 let lastCloudWriteAt = 0;
 let dirtyKeys = new Set();
@@ -108,6 +109,49 @@ function scheduleCloudSave(){
   cloudTimer = setTimeout(()=>{ cloudTimer = null; flushCloud(); }, CLOUD_DEBOUNCE_MS);
 }
 
+/**
+ * Разобрать JSON сервисного аккаунта.
+ * Частая беда: значение переменной окружения обрезается при вставке — не хватает
+ * закрывающих скобок в конце. Тогда аккуратно дописываем их и пробуем снова.
+ */
+function missingClosers(text){
+  let brace = 0, bracket = 0, inStr = false, esc = false;
+  for(const ch of text){
+    if(inStr){
+      if(esc) esc = false;
+      else if(ch === "\\") esc = true;
+      else if(ch === '"') inStr = false;
+      continue;
+    }
+    if(ch === '"'){ inStr = true; continue; }
+    if(ch === "{") brace++;
+    else if(ch === "}") brace--;
+    else if(ch === "[") bracket++;
+    else if(ch === "]") bracket--;
+  }
+  let out = inStr ? '"' : "";
+  out += "]".repeat(Math.max(0, bracket));
+  out += "}".repeat(Math.max(0, brace));
+  return out;
+}
+
+function parseServiceAccount(raw){
+  const text = String(raw || "").replace(/^\uFEFF/, "").trim();
+  try{
+    return JSON.parse(text);
+  }catch(e1){
+    const closers = missingClosers(text);
+    if(closers){
+      try{
+        const obj = JSON.parse(text + closers);
+        log(`☁ Ключ Firebase был обрезан — дописал «${closers}» автоматически`);
+        return obj;
+      }catch(e2){ /* ниже отдадим первую ошибку */ }
+    }
+    throw new Error("не разобрать JSON сервисного аккаунта (" + e1.message + ")");
+  }
+}
+
 function initFirebase(){
   const inline = process.env.FIREBASE_SERVICE_ACCOUNT;
   const file = process.env.FIREBASE_SERVICE_ACCOUNT_FILE;
@@ -117,7 +161,7 @@ function initFirebase(){
   }
   try{
     const admin = require("firebase-admin");
-    const cred = inline ? JSON.parse(inline) : JSON.parse(fs.readFileSync(file, "utf8"));
+    const cred = inline ? parseServiceAccount(inline) : parseServiceAccount(fs.readFileSync(file, "utf8"));
     const region = process.env.FIREBASE_REGION || "europe-west1";
     const dbUrl = process.env.FIREBASE_DB_URL ||
       (region === "us-central1"
@@ -128,10 +172,12 @@ function initFirebase(){
     }
     fbRef = admin.database().ref(process.env.FIREBASE_PATH || "games/vrata-sudby");
     fbReady = true;
+    fbError = null;
     log(`☁ Firebase подключён: ${dbUrl} / ${fbRef.path.toString()}`);
     return true;
   }catch(e){
-    log("⚠ Firebase не подключился:", e.message);
+    fbError = String((e && e.message) || e);
+    log("⚠ Firebase не подключился:", fbError);
     fbReady = false;
     fbRef = null;
     return false;
@@ -275,6 +321,8 @@ app.get("/api/storage", (_, res)=>{
     file: path.basename(SAVE_FILE),
     fileBytes: fs.existsSync(SAVE_FILE) ? fs.statSync(SAVE_FILE).size : 0,
     cloud: fbReady ? (process.env.FIREBASE_PATH || "games/vrata-sudby") : null,
+    cloudError: fbReady ? null : fbError,
+    cloudConfigured: !!(process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_FILE),
     version: stateVersion,
     updatedAt: stateUpdatedAt,
     hasState: !!gameState
@@ -465,6 +513,7 @@ module.exports = {
   app, server, wss, bootPromise,
   __test: {
     loadSave, saveNow, scheduleSave, flushCloud, loadFromCloud, initFirebase, markDirty,
+    parseServiceAccount, missingClosers,
     getDirtyKeys: ()=> Array.from(dirtyKeys),
     clearDirty: ()=> dirtyKeys.clear(),
     setCloudRef: (ref)=>{ fbRef = ref; fbReady = !!ref; },
