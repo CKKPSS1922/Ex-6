@@ -271,7 +271,11 @@
       <button class="btn primary">Войти как мастер</button>
     </div>
   </div>
-  <div style="position:absolute;bottom:20px;color:var(--muted);font-size:11px;letter-spacing:.2em">v1.0 · синхронизация между вкладками одного браузера</div>
+  <div id="resumeBox" style="display:none;margin-top:28px;text-align:center;max-width:740px">
+    <div style="font-size:11px;color:var(--muted);letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px">Продолжить игру</div>
+    <div id="resumeList" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></div>
+  </div>
+  <div style="position:absolute;bottom:20px;color:var(--muted);font-size:11px;letter-spacing:.2em">v1.1 · сохранения на сервере · синхронизация в реальном времени</div>
 </div>
 
 <!-- ============ Модалка мастера ============ -->
@@ -650,6 +654,7 @@
     <div class="brand">⚔ ВРАТА СУДЬБЫ</div>
     <div class="who">Вы: <b id="whoName">—</b> <span id="whoRole"></span></div>
     <div class="spacer"></div>
+    <div id="saveBadge" style="font-size:11px;color:var(--muted);margin-right:12px" title="Состояние игры сохраняется на сервере">💾 —</div>
     <div id="connBadge" style="font-size:11px;color:#7fd18a;margin-right:12px">🟡 подключение...</div>
     <button class="tool-mini" onclick="switchRole()">🚪 Выйти</button>
   </div>
@@ -782,6 +787,13 @@
         <label>Громкость</label>
         <input type="range" id="musicVol" min="0" max="100" value="60" />
       </div>
+
+      <div class="panel-title">💾 Сохранения</div>
+      <div class="mini-hint" id="saveInfo">Игра сохраняется на сервере автоматически.</div>
+      <button class="btn-block" onclick="downloadSave()">⬇ Скачать сейв файлом</button>
+      <button class="btn-block" onclick="document.getElementById('saveUpload').click()">⬆ Загрузить сейв из файла</button>
+      <input type="file" id="saveUpload" accept="application/json,.json" style="display:none" />
+      <div class="mini-hint">Файл содержит доску, токены, туман, чат, карточки персонажей и музыку.</div>
     </div>
 
     <div id="playerTools" style="display:none">
@@ -794,6 +806,7 @@
         </div>
       </div>
       <button class="btn-block primary" onclick="openCharSheet()" style="margin-bottom:8px">📋 Карточка персонажа</button>
+      <button class="btn-block" onclick="myPersonalLink()" style="margin-bottom:8px">🔗 Моя личная ссылка</button>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <button class="chipbtn" style="flex:1" title="Характеристики" onclick="openCharSheet('stats')">📊</button>
         <button class="chipbtn" style="flex:1" title="Навыки" onclick="openCharSheet('skills')">🎯</button>
@@ -873,13 +886,22 @@
 // ---------- Константы ----------
 const MASTER_PASSWORD = "Ничтожество";
 const STORE_KEY = "vrata_sudby_state_v1";
+const META_KEY  = "vrata_sudby_meta_v1";      // {version, updatedAt} — версия локальной копии
+const IDENT_KEY = "vrata_sudby_identity_v1";  // {id, code, name} — кто я на этом устройстве
 const CHAN_NAME = "vrata_sudby_chan_v1";
 
 // ---------- Состояние ----------
 let role = null;         // "master" | "player"
 let me = null;           // {id, name, color, avatar, role}
-// При загрузке страницы всегда стартуем с чистого состояния — актуальное придёт с сервера
-let state = defaultState();
+
+// Версия состояния: сервер и клиенты сравнивают её, чтобы старое не затирало свежее
+let stateVersion = 0;
+let stateUpdatedAt = 0;
+
+// Стартуем с последнего локального сейва: если сервер спит — игра всё равно на месте,
+// а когда сервер ответит, он пришлёт свою (более свежую) версию.
+let state = loadState();
+loadMeta();
 
 function defaultState(){
   return {
@@ -888,28 +910,99 @@ function defaultState(){
     fog:{},            // {playerId: [{type:"fill"|"clear"} | {mode:"hide"|"reveal",shape:"circle"|"rect",...}]}
     tokens:{},         // {tokenId: {id,type,name,color,avatar,x,y,size,ownerId,hp?,visionRadius?}}
     players:{},        // {playerId: {id,name,color,avatar,online:ts}}
+    characters:{},     // {charId: {id,code,name,color,avatar,charSheet,seenAt}} — реестр персонажей
     music:{ tracks:[], playingId:null, position:0, playing:false, startedAt:0, volume:0.6 },
     chat:[],           // {id,from,fromId,text,type:"chat"|"roll"|"pm"|"system",to?,ts,rollDetails?}
     settings:{ defaultVision:250, dynamicVision:true } // радиус зрения новых токенов; динамический fog-of-war
   };
 }
 
+/** Привести любое состояние к полному набору полей. */
+function normalizeState(s){
+  const d = defaultState();
+  const src = (s && typeof s === "object") ? s : {};
+  const out = Object.assign(d, src);
+  out.board = Object.assign({}, d.board, src.board || {});
+  out.music = Object.assign({}, d.music, src.music || {});
+  out.settings = Object.assign({}, d.settings, src.settings || {});
+  out.tokens = src.tokens || {};
+  out.players = src.players || {};
+  out.fog = src.fog || {};
+  out.characters = src.characters || {};
+  out.chat = Array.isArray(src.chat) ? src.chat : [];
+  out.drawings = Array.isArray(src.drawings) ? src.drawings : [];
+  return out;
+}
+
 function loadState(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(!raw) return defaultState();
-    const s = JSON.parse(raw);
-    // merge defaults
-    const d = defaultState();
-    return Object.assign(d, s, {
-      board:Object.assign(d.board, s.board||{}),
-      music:Object.assign(d.music, s.music||{}),
-      settings:Object.assign(d.settings, s.settings||{})
-    });
+    return normalizeState(JSON.parse(raw));
   }catch(e){ return defaultState(); }
 }
 function saveState(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed",e); }
+  saveMeta();
+}
+function saveMeta(){
+  try{ localStorage.setItem(META_KEY, JSON.stringify({ version: stateVersion, updatedAt: stateUpdatedAt })); }catch(e){}
+}
+function loadMeta(){
+  try{
+    const m = JSON.parse(localStorage.getItem(META_KEY) || "{}");
+    stateVersion = parseInt(m.version) || 0;
+    stateUpdatedAt = parseInt(m.updatedAt) || 0;
+  }catch(e){ stateVersion = 0; stateUpdatedAt = 0; }
+}
+
+/** Локальное изменение: поднять версию и сохранить у себя. */
+function markLocalChange(){
+  stateVersion++;
+  stateUpdatedAt = Date.now();
+  saveState();
+  updateSaveBadge();
+}
+
+/** Есть ли в состоянии что-то живое (а не пустая доска). */
+function hasLocalWorld(){
+  if(!state) return false;
+  return !!(Object.keys(state.tokens || {}).length
+    || (state.board && state.board.bg)
+    || (state.drawings || []).length
+    || (state.chat || []).length
+    || Object.keys(state.characters || {}).length);
+}
+
+// ---------- Кто я (личность на этом устройстве) ----------
+function getIdentity(){
+  try{ return JSON.parse(localStorage.getItem(IDENT_KEY) || "null"); }catch(e){ return null; }
+}
+function setIdentity(ident){
+  try{ localStorage.setItem(IDENT_KEY, JSON.stringify(ident)); }catch(e){}
+}
+function clearIdentity(){
+  try{ localStorage.removeItem(IDENT_KEY); }catch(e){}
+}
+function makeCode(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for(let i = 0; i < 6; i++) s += abc[Math.floor(Math.random() * abc.length)];
+  return s;
+}
+function findCharacter(codeOrId){
+  if(!codeOrId) return null;
+  const chars = state.characters || {};
+  if(chars[codeOrId]) return chars[codeOrId];
+  return Object.values(chars).find(c=> c && (c.code === codeOrId || c.id === codeOrId)) || null;
+}
+function personalLinkFor(ch){
+  const base = location.origin + location.pathname;
+  return base + "?p=" + encodeURIComponent((ch && (ch.code || ch.id)) || "");
+}
+function linkCodeFromUrl(){
+  const m = location.search.match(/[?&]p=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 // ---------- Broadcast ----------
@@ -983,6 +1076,25 @@ function broadcast(msg){
 function handleMessage(m){
   if(!m || !m.type) return;
   switch(m.type){
+    // Сервер отдаёт состояние: он источник правды, но если у нас копия свежее — предлагаем её
+    case "server-state": {
+      const sv = parseInt(m.version) || 0;
+      const su = parseInt(m.updatedAt) || 0;
+      if(m.state && sv >= stateVersion){
+        adoptServerState(m.state, sv, su);
+      } else if(m.state){
+        pushLocalState("наша копия свежее серверной");
+      } else if(hasLocalWorld()){
+        pushLocalState("на сервере пусто — отдаём свою игру");
+      } else {
+        stateVersion = sv;
+        stateUpdatedAt = su;
+        saveMeta();
+        updateSaveBadge();
+        updateResumeBox();
+      }
+      break;
+    }
     case "state-patch":
       applyPatch(m.patch, false);
       // Если пришло обновление музыки — попробуем сыграть pending-команду или подхватить текущую
@@ -1026,55 +1138,33 @@ function handleMessage(m){
       }
       break;
     case "hello":
-      // Ответим полным состоянием, если мы мастер или самый старший (первый онлайн)
-      if(role==="master") broadcast({type:"full-state", state});
+      // Сервер сам отвечает server-state, мастер для выдачи состояния больше не нужен
       break;
     case "full-state": {
-      // Сохраним свои данные ПЕРЕД тем как затереть state
-      const savedMyToken = me ? state.tokens?.[me.id] : null;
-      const savedMyPlayer = me ? state.players?.[me.id] : null;
-      const savedMyFog = (me && role==="player") ? state.fog?.[me.id] : null;
+      // Старый протокол (от клиента со старой версией страницы) — применяем как есть
+      const savedMyTokenLegacy = me ? state.tokens?.[me.id] : null;
+      const savedMyPlayerLegacy = me ? state.players?.[me.id] : null;
+      const savedMyFogLegacy = (me && role==="player") ? state.fog?.[me.id] : null;
 
-      state = m.state || {};
-      if(!state.tokens) state.tokens = {};
-      if(!state.players) state.players = {};
-      if(!state.fog) state.fog = {};
-      if(!state.settings) state.settings = { defaultVision:250, dynamicVision:true };
-      if(!state.chat) state.chat = [];
-      if(!state.drawings) state.drawings = [];
-      if(!state.board) state.board = { w:2000, h:1400, gridSize:50, bg:null };
-      if(!state.music) state.music = { tracks:[], volume:0.6 };
-
-      // Восстановим себя, если сервер не знал о нас
+      state = normalizeState(m.state);
       if(me){
-        if(!state.tokens[me.id] && savedMyToken){ state.tokens[me.id] = savedMyToken; }
-        if(!state.players[me.id] && savedMyPlayer){ state.players[me.id] = savedMyPlayer; }
-        if(role==="player" && !state.fog[me.id]){
-          state.fog[me.id] = savedMyFog || [{type:"fill"}];
-        }
-        // Если всё-таки нашего токена нигде нет — создадим заново
-        if(role==="player" && !state.tokens[me.id]){
-          ensureMyPresence();
-        } else {
-          // Разошлём всем свои актуальные данные (сервер мог не знать)
-          applyPatch({tokens: state.tokens, players: state.players, fog: state.fog});
-          broadcast({type:"presence", player: state.players[me.id]});
-        }
+        if(!state.tokens[me.id] && savedMyTokenLegacy) state.tokens[me.id] = savedMyTokenLegacy;
+        if(!state.players[me.id] && savedMyPlayerLegacy) state.players[me.id] = savedMyPlayerLegacy;
+        if(role==="player" && !state.fog[me.id]) state.fog[me.id] = savedMyFogLegacy || [{type:"fill"}];
       }
+      stateVersion = Math.max(stateVersion, parseInt(m.version) || 0);
+      stateUpdatedAt = Math.max(stateUpdatedAt, parseInt(m.updatedAt) || Date.now());
       invalidateFogCache();
-      // сброс кэша фона — вдруг карту заменили
       _lastBgSrc = null;
       bgImage = null;
       saveState();
-      // Автоподхват музыки, если мастер уже что-то играет
-      if(pendingMusicCmd){
-        const cmd = pendingMusicCmd;
-        pendingMusicCmd = null;
-        handleMusicCmd(cmd);
-      } else if(role !== "master" && state.music && state.music.playing && state.music.playingId){
-        handleMusicCmd({action:"play", id: state.music.playingId, volume: state.music.volume});
-      }
       renderAll();
+      updateSaveBadge();
+      updateResumeBox();
+      break;
+    }
+    case "legacy-full-state-ignored": {
+      // (старая ветка удалена — оставлена пустой на случай кэшированной страницы)
       break;
     }
     case "chat":
@@ -1145,7 +1235,7 @@ async function alertKicked(byName){
 
 function applyPatch(patch, doBroadcast=true){
   // Ключи, которые мы всегда полностью ЗАМЕНЯЕМ, а не мёржим (иначе удалённые элементы не исчезают у других)
-  const REPLACE_KEYS = new Set(["tokens","players","fog","drawings","board","music","settings","chat"]);
+  const REPLACE_KEYS = new Set(["tokens","players","fog","drawings","board","music","settings","chat","characters"]);
   for(const k of Object.keys(patch)){
     if(patch[k]===null) delete state[k];
     else if(REPLACE_KEYS.has(k)) state[k] = patch[k]; // ← полная замена
@@ -1156,8 +1246,215 @@ function applyPatch(patch, doBroadcast=true){
   }
   // Любое изменение tokens/fog/settings инвалидирует кэш тумана
   if(patch.tokens || patch.fog || patch.settings) invalidateFogCache();
+  if(doBroadcast){ markLocalChange(); broadcast({type:"state-patch", patch}); }
+  else saveState();
+}
+
+// ==================== СОХРАНЕНИЯ И ВОЗВРАТ В ИГРУ ====================
+
+/** Принять состояние от сервера (он источник правды). */
+function adoptServerState(s, version, updatedAt){
+  const wasEmpty = !hasLocalWorld();
+  state = normalizeState(s);
+  stateVersion = parseInt(version) || 0;
+  stateUpdatedAt = parseInt(updatedAt) || 0;
   saveState();
-  if(doBroadcast) broadcast({type:"state-patch", patch});
+  invalidateFogCache();
+  _lastBgSrc = null;
+  bgImage = null;
+  updateSaveBadge();
+  updateResumeBox();
+  if(me || role){ renderAll(); updateHeroPanel(); renderFogPlayerSelect(); }
+  if(wasEmpty) console.log("[sync] принято состояние сервера, версия " + stateVersion);
+}
+
+/** Предложить серверу своё (локальное) состояние. */
+function pushLocalState(reason){
+  if(!hasLocalWorld()) return;
+  if(!stateUpdatedAt) stateUpdatedAt = Date.now();
+  broadcast({ type:"client-state", state: state, version: stateVersion, updatedAt: stateUpdatedAt });
+  console.log("[sync] предложили серверу свою копию (v" + stateVersion + ")" + (reason ? " — " + reason : ""));
+}
+
+/**
+ * Разослать состояние целиком (карта, музыка, новая сессия).
+ * Обязательно с версией — иначе сервер справедливо отклонит копию как устаревшую.
+ */
+function broadcastFullState(){
+  markLocalChange();
+  broadcast({ type:"client-state", state: state, version: stateVersion, updatedAt: stateUpdatedAt });
+}
+
+function updateSaveBadge(){
+  const el = document.getElementById("saveBadge");
+  const info = document.getElementById("saveInfo");
+  const when = stateUpdatedAt ? new Date(stateUpdatedAt) : null;
+  if(el){
+    el.textContent = when ? ("💾 v" + stateVersion + " · " + when.toLocaleTimeString()) : "💾 пусто";
+    el.title = when ? ("Версия " + stateVersion + ", изменено " + when.toLocaleString()) : "Сохранений пока нет";
+  }
+  if(info){
+    info.textContent = when
+      ? ("Версия " + stateVersion + ", изменено " + when.toLocaleString() + ". Игра хранится на сервере и в вашем браузере.")
+      : "Игра сохраняется на сервере автоматически.";
+  }
+}
+
+/** Кнопки «продолжить своим персонажем» на экране входа. */
+function updateResumeBox(){
+  const box = document.getElementById("resumeBox");
+  const list = document.getElementById("resumeList");
+  if(!box || !list) return;
+  if(me || role){ box.style.display = "none"; return; }
+  const ident = getIdentity();
+  const chars = Object.values(state.characters || {}).filter(c=> c && c.id && (c.name || (c.charSheet && c.charSheet.name)));
+  const items = [];
+  if(ident && ident.id){
+    const own = chars.find(c=> c.id === ident.id)
+      || (charSheet && charSheet.name ? { id: ident.id, code: ident.code, name: charSheet.name, color: charSheet.color, avatar: null, charSheet: charSheet } : null);
+    if(own) items.push({ ch: own, label: "▶ Продолжить как " + (own.name || ident.name || "герой"), primary: true });
+  }
+  chars.filter(c=> !ident || c.id !== ident.id).slice(0, 6)
+      .forEach(c=> items.push({ ch: c, label: "▶ " + (c.name || "герой") }));
+  list.innerHTML = "";
+  if(!items.length){ box.style.display = "none"; return; }
+  items.forEach(it=>{
+    const b = document.createElement("button");
+    b.className = "btn" + (it.primary ? " primary" : "");
+    b.textContent = it.label;
+    b.title = "Войти этим персонажем — карточка подтянется автоматически";
+    b.onclick = ()=> enterGameAs(it.ch);
+    list.appendChild(b);
+  });
+  box.style.display = "block";
+}
+
+/** Войти в игру уже существующим персонажем (без заполнения карточки). */
+function enterGameAs(ch){
+  if(!ch) return;
+  const cs = migrateSheet(ch.charSheet || {});
+  me = {
+    id: ch.id,
+    code: ch.code || null,
+    name: ch.name || cs.name || "Герой",
+    color: ch.color || cs.color || "#c9a24a",
+    avatar: ch.avatar || null,
+    role: "player",
+    charSheet: cs
+  };
+  charSheet = cs;
+  role = "player";
+  setIdentity({ id: me.id, code: me.code, name: me.name });
+  enterApp();
+  showNotice("С возвращением, " + me.name + "!");
+}
+
+/** Отправить карточку в реестр персонажей (живёт в сохранении на сервере). */
+function registerCharacter(){
+  if(!me || role !== "player" || !me.charSheet) return;
+  const character = {
+    id: me.id,
+    code: me.code || null,
+    name: me.name,
+    color: me.color,
+    avatar: me.avatar || null,
+    charSheet: me.charSheet,
+    owner: me.charSheet.playerName || "",
+    seenAt: Date.now()
+  };
+  // держим копию у себя — чтобы список «продолжить» работал даже без ответа сервера
+  state.characters = state.characters || {};
+  state.characters[me.id] = Object.assign({}, state.characters[me.id] || {}, character);
+  saveState();
+  broadcast({ type:"character", character: character });
+}
+
+/** Ссылка для входа этим персонажем с любого устройства. */
+function myPersonalLink(){
+  if(!me) return;
+  const code = me.code || (getIdentity() && getIdentity().code);
+  if(!code){ showNotice("Личная ссылка появится после сохранения карточки"); return; }
+  copyText(personalLinkFor({ code: code }), "Личная ссылка скопирована — открой её на любом устройстве");
+}
+
+function copyText(text, okMessage){
+  const done = ()=> showNotice(okMessage || "Ссылка скопирована");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand("copy"); done(); }catch(e){ showNotice(text); }
+    document.body.removeChild(ta);
+  }
+}
+
+/** Вход по личной ссылке ?p=КОД */
+function tryResumeFromLink(){
+  const code = linkCodeFromUrl();
+  if(!code || me) return false;
+  const ch = findCharacter(code);
+  if(!ch){ console.warn("[resume] персонаж по ссылке не найден:", code); return false; }
+  enterGameAs(ch);
+  return true;
+}
+
+/** Скачать сейв файлом (мастер). */
+function downloadSave(){
+  if(role !== "master"){ showNotice("Скачать сейв может только мастер"); return; }
+  const payload = JSON.stringify({
+    app: "vrata-sudby", version: stateVersion, updatedAt: stateUpdatedAt,
+    exportedAt: Date.now(), state: state
+  }, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "vrata-save-v" + stateVersion + "-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 5000);
+  showNotice("Сейв скачан файлом");
+}
+
+/** Применить загруженный сейв (уже разобранный JSON). */
+function applySavePayload(data){
+  const incoming = (data && data.state) ? data.state : data;
+  if(!incoming || typeof incoming !== "object") throw new Error("в файле нет состояния игры");
+  state = normalizeState(incoming);
+  stateVersion = Math.max(stateVersion, parseInt(data && data.version) || 0) + 1;
+  stateUpdatedAt = Date.now();
+  saveState();
+  invalidateFogCache();
+  _lastBgSrc = null;
+  bgImage = null;
+  broadcast({ type:"client-state", state: state, version: stateVersion, updatedAt: stateUpdatedAt });
+  renderAll();
+  updateSaveBadge();
+  updateResumeBox();
+  return true;
+}
+
+/** Загрузить сейв из файла (мастер). */
+function loadSaveFromFile(file){
+  const r = new FileReader();
+  r.onload = async ()=>{
+    try{
+      const data = JSON.parse(r.result);
+      const ok = await dlgConfirm("⬆ Загрузить сейв",
+        "Заменить текущую игру содержимым файла? Доска, токены, туман, чат, карточки и музыка будут заменены.");
+      if(!ok) return;
+      applySavePayload(data);
+      showNotice("Сейв загружен и разослан игрокам");
+    }catch(e){
+      dlgAlert("Не удалось загрузить сейв", String((e && e.message) || e));
+    }
+  };
+  r.readAsText(file);
 }
 
 // ---------- Меню / логин ----------
@@ -1428,16 +1725,23 @@ async function loginPlayer(){
   const avatar = await readFileAsDataURL(fileEl && fileEl.files[0]);
   const cardImg = await readFileAsDataURL(cardEl && cardEl.files[0]);
   if(cardImg) sheet.cardImage = cardImg;
+  // Личность запоминаем один раз: id даёт постоянного персонажа (токен, туман, карточка),
+  // code — личную ссылку для входа с другого устройства.
+  const prev = getIdentity() || {};
+  const id = prev.id || ("p_" + Date.now() + "_" + Math.random().toString(36).slice(2,7));
+  const code = prev.code || makeCode();
   charSheet = sheet;
   role = "player";
   me = {
-    id: "p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),
+    id: id,
+    code: code,
     name: sheet.name,
     color: sheet.color,
     avatar,
     role: "player",
     charSheet: sheet
   };
+  setIdentity({ id: id, code: code, name: sheet.name });
   enterApp();
 }
 
@@ -1906,11 +2210,14 @@ async function saveCharSheet(){
   saveState();
   broadcast({type:"state-patch", patch:{tokens: state.tokens, players: state.players}});
   broadcast({type:"presence", player: state.players[me.id]});
+  registerCharacter();
+  setIdentity({ id: me.id, code: me.code, name: me.name });
   document.getElementById("whoName").textContent = me.name;
   updateHeroPanel();
   renderTokens();
   renderPlayers();
-  showNotice("Карточка сохранена и отправлена мастеру");
+  updateSaveBadge();
+  showNotice("Карточка сохранена — теперь вы можете заходить под этим героем в один клик");
   closeModal("playerModal");
 }
 
@@ -1934,6 +2241,9 @@ function enterApp(){
 
   // Регистрируем присутствие И СРАЗУ создаём токен, чтобы игрок его увидел без задержки
   ensureMyPresence();
+  registerCharacter();
+  updateSaveBadge();
+  updateResumeBox();
 
   initBoard();
   setupUI();
@@ -2012,7 +2322,7 @@ function ensureMyPresence(){
   broadcast({type:"presence", player: state.players[me.id]});
   // Если мы мастер — синхронизируем ПОЛНОЕ состояние (карту, музыку, настройки)
   if(role === "master"){
-    broadcast({type:"full-state", state});
+    broadcastFullState();
   }
 }
 
@@ -2020,7 +2330,7 @@ function systemMessage(text){
   const msg = { id:"m_"+Date.now()+"_"+Math.random(), type:"system", text, ts:Date.now() };
   state.chat.push(msg);
   if(state.chat.length>200) state.chat = state.chat.slice(-200);
-  saveState();
+  markLocalChange();
   broadcast({type:"chat", msg});
   renderChat();
 }
@@ -2056,6 +2366,9 @@ function initBoard(){
 
 function resizeBoard(){
   const w = state.board.w, h = state.board.h;
+  // Меняем размер только если он реально изменился: иначе каждая перерисовка
+  // рассылала бы патч и поднимала версию состояния (лишний трафик и шум в версиях).
+  const changed = (parseInt(boardLayers.style.width) !== w) || (parseInt(boardLayers.style.height) !== h);
   boardLayers.style.width = w+"px";
   boardLayers.style.height = h+"px";
   for(const c of [bgCanvas, gridCanvas, drawCanvas, fogCanvas]){
@@ -2071,8 +2384,10 @@ function resizeBoard(){
   drawDrawings();
   drawFog();
   renderTokens();
-  applyPatch({board: state.board});
-  showNotice(`Размер поля: ${w}×${h} px`);
+  if(changed){
+    applyPatch({board: state.board});
+    showNotice(`Размер поля: ${w}×${h} px`);
+  }
 }
 
 function drawBackground(){
@@ -3005,7 +3320,7 @@ document.getElementById("bgUpload")?.addEventListener("change",(e)=>{
       state.board.h = Math.max(h, 800);
       resizeBoard(); drawBackground(); drawGrid(); drawDrawings(); drawFog(); renderTokens();
       saveState();
-      broadcast({type:"full-state", state});
+      broadcastFullState();
       showNotice("Карта загружена и разослана");
       // Показываем превью карты вместо кнопки
       showBgPreview(r.result);
@@ -3036,7 +3351,7 @@ function clearBg(){
   _lastBgSrc = null;
   drawBackground();
   applyPatch({board: state.board});
-  broadcast({type:"full-state", state});
+  broadcastFullState();
   showNotice("Карта удалена");
   // Возвращаем кнопку
   const preview = document.getElementById("bgPreview");
@@ -3237,7 +3552,7 @@ function sendChat(){
   }
   state.chat.push(msg);
   if(state.chat.length>200) state.chat = state.chat.slice(-200);
-  saveState();
+  markLocalChange();
   broadcast({type:"chat", msg});
   renderChat();
 }
@@ -3391,7 +3706,7 @@ document.getElementById("musicUpload")?.addEventListener("change",(e)=>{
       if(done===files.length){
         saveState();
         // Отправляем полный state, чтобы гарантированно донести треки до всех
-        broadcast({type:"full-state", state});
+        broadcastFullState();
         renderMusicList();
         showNotice("Трек загружен и разослан игрокам");
       }
@@ -3602,9 +3917,15 @@ function renderPlayers(){
     }
     // Мастер может выгнать любого игрока (кроме себя и других мастеров)
     if(role==="master" && p.role==="player" && !isMe){
+      const linkBtn = document.createElement("button");
+      linkBtn.textContent = "🔗";
+      linkBtn.title = "Скопировать личную ссылку игрока (вход под своим персонажем с любого устройства)";
+      linkBtn.style.cssText = "background:transparent;border:1px solid var(--line);color:var(--gold2);padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;margin-right:4px";
+      linkBtn.onclick = (e)=>{ e.stopPropagation(); copyText(linkForPlayer(p), "Ссылка для " + p.name + " скопирована"); };
+      row.appendChild(linkBtn);
       const kickBtn = document.createElement("button");
       kickBtn.textContent = "✕";
-      kickBtn.title = online ? "Выгнать игрока" : "Удалить офлайн-игрока";
+      kickBtn.title = online ? "Выгнать игрока" : "Убрать из списка (персонаж сохранится)";
       kickBtn.style.cssText = "background:transparent;border:1px solid var(--danger);color:#ff9a8b;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px";
       kickBtn.onmouseover = ()=>{ kickBtn.style.background="var(--danger)"; kickBtn.style.color="#fff"; };
       kickBtn.onmouseout = ()=>{ kickBtn.style.background="transparent"; kickBtn.style.color="#ff9a8b"; };
@@ -3614,16 +3935,67 @@ function renderPlayers(){
     el.appendChild(row);
   });
 
+  // Персонажи, которые есть в сейве, но сейчас не в игре — их можно вернуть личной ссылкой
+  if(role==="master"){
+    const known = state.characters || {};
+    const offlineChars = Object.values(known).filter(c=> c && c.id && !state.players[c.id] && (c.name || c.charSheet));
+    if(offlineChars.length){
+      const title = document.createElement("div");
+      title.className = "panel-title";
+      title.style.marginTop = "10px";
+      title.textContent = "🗂 Персонажи в сейве (" + offlineChars.length + ")";
+      el.appendChild(title);
+      offlineChars.slice(0, 20).forEach(c=>{
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 8px;background:#100819;border:1px solid var(--line);border-radius:6px;opacity:.8";
+        row.innerHTML = `<div style="flex:1;font-size:12px;color:${c.color || "var(--text)"}">${escapeHtml(c.name || "герой")}
+          <span style="color:var(--muted);font-size:10px"> · ${c.seenAt ? new Date(c.seenAt).toLocaleDateString() : "—"}</span></div>`;
+        const link = document.createElement("button");
+        link.textContent = "🔗";
+        link.title = "Личная ссылка персонажа";
+        link.style.cssText = "background:transparent;border:1px solid var(--line);color:var(--gold2);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:12px";
+        link.onclick = ()=> copyText(personalLinkFor(c), "Ссылка для " + (c.name || "героя") + " скопирована");
+        row.appendChild(link);
+        if(c.charSheet){
+          const card = document.createElement("button");
+          card.textContent = "📋";
+          card.title = "Показать карточку";
+          card.style.cssText = "background:transparent;border:1px solid var(--line);color:var(--text);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:12px";
+          card.onclick = ()=> showCharSheet(c);
+          row.appendChild(card);
+        }
+        el.appendChild(row);
+      });
+    }
+  }
+
   if(sorted.length===0){
     el.innerHTML += '<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">Игроков пока нет</div>';
   }
+}
+
+/** Личная ссылка игрока: при необходимости заводим код и сохраняем его в реестре. */
+function linkForPlayer(p){
+  state.characters = state.characters || {};
+  let ch = state.characters[p.id];
+  if(!ch){
+    ch = { id: p.id, code: makeCode(), name: p.name, color: p.color, avatar: p.avatar || null, charSheet: p.charSheet || null, seenAt: Date.now() };
+    state.characters[p.id] = ch;
+    applyPatch({ characters: state.characters });
+    broadcast({ type:"character", character: ch });
+  } else if(!ch.code){
+    ch.code = makeCode();
+    applyPatch({ characters: state.characters });
+    broadcast({ type:"character", character: ch });
+  }
+  return personalLinkFor(ch);
 }
 
 async function cleanOfflinePlayers(){
   const offlinePlayers = Object.values(state.players).filter(p=>!isPlayerOnline(p) && !(me && p.id===me.id));
   if(offlinePlayers.length===0){ showNotice("Нет офлайн-игроков"); return; }
   const ok = await dlgConfirm("🧹 Убрать офлайн-игроков",
-    `Удалить ${offlinePlayers.length} офлайн-${offlinePlayers.length===1?"игрока":"игроков"}? Их токены и туман будут удалены.`);
+    `Убрать ${offlinePlayers.length} офлайн-${offlinePlayers.length===1?"игрока":"игроков"} с доски? Их токены и туман будут удалены, а карточки персонажей останутся в сейве — игрок сможет вернуться по личной ссылке.`);
   if(!ok) return;
   for(const p of offlinePlayers){
     delete state.players[p.id];
@@ -3654,14 +4026,14 @@ async function newSession(){
   invalidateFogCache();
   saveState();
   // Отправляем всем новое полное состояние
-  broadcast({type:"full-state", state});
+  broadcastFullState();
   systemMessage("Мастер начал новую сессию");
   renderAll();
   showNotice("🆕 Новая сессия начата — доска очищена");
 }
 
 async function kickPlayer(p){
-  const ok = await dlgConfirm("Выгнать игрока", `Выгнать "${p.name}" из игры? Его токен и туман будут удалены.`);
+  const ok = await dlgConfirm("Выгнать игрока", `Выгнать "${p.name}" из игры? Токен и туман будут убраны с доски, карточка персонажа останется в сейве.`);
   if(!ok) return;
   // Уведомим игрока
   broadcast({type:"kick", playerId: p.id, by: me.name});
@@ -3888,31 +4260,28 @@ async function switchRole(){
     const msg = { id:"m_"+Date.now(), type:"system", text:`${me.name} покинул игру`, ts:Date.now() };
     state.chat.push(msg);
     if(state.chat.length>200) state.chat = state.chat.slice(-200);
-    saveState();
+    markLocalChange();
     broadcast({type:"chat", msg});
-    // Убираем себя из списка присутствующих (и токен, и туман — если игрок)
     if(role==="player"){
-      delete state.players[me.id];
-      delete state.tokens[me.id];
-      delete state.fog[me.id];
-      invalidateFogCache();
-      applyPatch({players: state.players, tokens: state.tokens, fog: state.fog});
+      // Персонаж остаётся в игре: токен, туман и карточка сохраняются для следующего входа
+      registerCharacter();
+      if(state.players[me.id]){
+        state.players[me.id].online = 0;
+        broadcast({type:"presence", player: state.players[me.id]});
+      }
+      saveState();
     } else if(role==="master"){
-      // Мастер выходит — тоже удаляем из списка (сервер сбросит всё, если пусто)
       delete state.players[me.id];
       applyPatch({players: state.players});
     }
   }
   // Останавливаем музыку локально
   if(audioEl){ try{ audioEl.pause(); }catch(e){} }
-  // Сбрасываем локальные переменные роли
+  // Сбрасываем локальные переменные роли (личность и сейв в браузере НЕ трогаем)
   role = null;
   me = null;
   selectedFogPlayers.clear();
   bgImage = null;
-  // Очищаем локальный кэш — при следующем входе состояние придёт с сервера (или будет чистое)
-  try{ localStorage.removeItem(STORE_KEY); }catch(e){}
-  state = defaultState();
   // Скрываем приложение и возвращаем меню
   document.getElementById("app").classList.remove("show");
   document.getElementById("masterTools").style.display="none";
@@ -3925,6 +4294,8 @@ async function switchRole(){
   document.getElementById("playerErr").textContent="";
   // Показываем главное меню
   document.getElementById("menu").style.display="flex";
+  updateResumeBox();
+  updateSaveBadge();
 }
 
 // keyboard enter in modals
@@ -3935,8 +4306,22 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && document.getElementById("dlgBg").classList.contains("show")) dlgClose();
 });
 
-// Ping other tabs on open so master (if present) resends state
-setTimeout(()=>{ if(role) broadcast({type:"hello"}); }, 300);
+// ---------- Инициализация: локальный сейв, личность, личные ссылки ----------
+updateSaveBadge();
+updateResumeBox();
+// Вход по личной ссылке ?p=КОД: сначала пробуем локальную копию, потом ждём состояние с сервера
+setTimeout(()=>{ if(!tryResumeFromLink()) updateResumeBox(); }, 250);
+setTimeout(()=>{ if(!me) tryResumeFromLink(); }, 1800);
+// Пинг серверу: он ответит server-state (мастер для выдачи состояния больше не нужен)
+setTimeout(()=>{ broadcast({type:"hello"}); }, 300);
+
+// Загрузка сейва из файла
+document.getElementById("saveUpload")?.addEventListener("change",(e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  loadSaveFromFile(f);
+  e.target.value = "";
+});
 
 // При закрытии — попрощаемся
 window.addEventListener("beforeunload", ()=>{
