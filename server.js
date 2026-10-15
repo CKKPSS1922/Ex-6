@@ -1,17 +1,22 @@
 /**
- * Врата Судьбы — сервер (v2: сохранения и версии состояния)
+ * Врата Судьбы — сервер (v3: сохранения + внешнее хранилище)
  *
  * Что делает:
  *  - раздаёт статику из public/ и держит WebSocket-хаб для синхронизации;
- *  - хранит состояние игры (доска, токены, туман, чат, карточки, музыка) и ПИШЕТ ЕГО В ФАЙЛ,
- *    поэтому сессия не теряется при перезапуске инстанса;
+ *  - хранит состояние игры (доска, токены, туман, чат, карточки, музыка);
+ *  - сохраняет его в файл (переживает перезапуск процесса) и, если задан ключ Firebase,
+ *    в Realtime Database — тогда сейв переживает и редеплой/сон бесплатного инстанса;
  *  - версионирует состояние: клиент со старой копией не может затереть более свежую;
  *  - отдаёт состояние любому подключившемуся клиенту, а не только мастеру;
  *  - НЕ сбрасывает игру сам: обнуление только по команде reset-state от мастера.
  *
- * Сохранение: SAVE_FILE (по умолчанию savegame.json рядом с сервером).
- * ВАЖНО: на бесплатном Render файловая система эфемерная — файл переживает перезапуск
- * инстанса, но не редеплой. Для «вечных» сейвов подключается внешнее хранилище (Firebase).
+ * Хранилище:
+ *   файл:      SAVE_FILE (по умолчанию savegame.json рядом с сервером)
+ *   Firebase:  FIREBASE_SERVICE_ACCOUNT (JSON сервисного аккаунта одной строкой)
+ *              или FIREBASE_SERVICE_ACCOUNT_FILE (путь к JSON)
+ *              FIREBASE_DB_URL — URL базы (иначе соберём из project_id и FIREBASE_REGION)
+ *              FIREBASE_REGION — регион базы, по умолчанию europe-west1
+ *              FIREBASE_PATH — путь в базе, по умолчанию games/vrata-sudby
  */
 
 const fs = require("fs");
@@ -24,6 +29,8 @@ const PORT = process.env.PORT || 3000;
 const SAVE_FILE = process.env.SAVE_FILE || path.join(__dirname, "savegame.json");
 const SAVE_DEBOUNCE_MS = Math.max(200, parseInt(process.env.SAVE_DEBOUNCE_MS || "1500", 10));
 const SAVE_EVERY_MS = Math.max(5000, parseInt(process.env.SAVE_EVERY_MS || "60000", 10));
+const CLOUD_DEBOUNCE_MS = Math.max(2000, parseInt(process.env.CLOUD_DEBOUNCE_MS || "8000", 10));
+const CLOUD_MIN_INTERVAL_MS = Math.max(5000, parseInt(process.env.CLOUD_MIN_INTERVAL_MS || "30000", 10));
 
 function log(...args){
   console.log(new Date().toISOString().slice(11, 19), ...args);
@@ -40,7 +47,7 @@ let pendingSave = false;
 function loadSave(){
   try{
     if(!fs.existsSync(SAVE_FILE)){
-      log("💾 Сохранение не найдено — стартуем с пустой доской");
+      log("💾 Файл сохранения не найден — стартуем с пустой доской");
       return false;
     }
     const raw = fs.readFileSync(SAVE_FILE, "utf8");
@@ -50,14 +57,14 @@ function loadSave(){
     stateUpdatedAt = parseInt(data && data.updatedAt) || 0;
     lastSavedAt = Date.now();
     if(gameState){
-      log(`💾 Загружено сохранение ${path.basename(SAVE_FILE)}: версия ${stateVersion}, ` +
-          `${(raw.length / 1048576).toFixed(2)} МБ, изменено ${new Date(stateUpdatedAt).toLocaleString()}`);
+      log(`💾 Из файла: версия ${stateVersion}, ${(raw.length / 1048576).toFixed(2)} МБ, ` +
+          `изменено ${new Date(stateUpdatedAt).toLocaleString()}`);
     } else {
-      log("💾 В сохранении пусто (доска обнулена мастером)");
+      log("💾 В файле пусто (доска обнулена мастером)");
     }
     return !!gameState;
   }catch(e){
-    log("⚠ Не удалось прочитать сохранение:", e.message);
+    log("⚠ Не удалось прочитать файл сохранения:", e.message);
     return false;
   }
 }
@@ -71,9 +78,9 @@ function saveNow(force){
     fs.renameSync(tmp, SAVE_FILE);   // атомарная замена, чтобы не поймать обрезанный файл
     lastSavedAt = Date.now();
     pendingSave = false;
-    log(`💾 Сохранено: версия ${stateVersion}, ${(payload.length / 1048576).toFixed(2)} МБ`);
+    log(`💾 В файл: версия ${stateVersion}, ${(payload.length / 1048576).toFixed(2)} МБ`);
   }catch(e){
-    log("⚠ Ошибка записи сохранения:", e.message);
+    log("⚠ Ошибка записи файла сохранения:", e.message);
   }
 }
 
@@ -83,7 +90,122 @@ function scheduleSave(){
   saveTimer = setTimeout(()=>{ saveTimer = null; saveNow(); }, SAVE_DEBOUNCE_MS);
 }
 
-/** Отметить изменение состояния (версия ++, запись в файл по таймеру). */
+// ---------- Внешнее хранилище (Firebase Realtime Database) ----------
+let fbRef = null;
+let fbReady = false;
+let cloudTimer = null;
+let lastCloudWriteAt = 0;
+let dirtyKeys = new Set();
+
+function markDirty(keys){
+  (keys || []).forEach(k=> dirtyKeys.add(k));
+  scheduleCloudSave();
+}
+
+function scheduleCloudSave(){
+  if(!fbReady) return;
+  if(cloudTimer) return;
+  cloudTimer = setTimeout(()=>{ cloudTimer = null; flushCloud(); }, CLOUD_DEBOUNCE_MS);
+}
+
+function initFirebase(){
+  const inline = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const file = process.env.FIREBASE_SERVICE_ACCOUNT_FILE;
+  if(!inline && !file){
+    log("☁ Firebase не настроен — работаю только с файлом и клиентами");
+    return false;
+  }
+  try{
+    const admin = require("firebase-admin");
+    const cred = inline ? JSON.parse(inline) : JSON.parse(fs.readFileSync(file, "utf8"));
+    const region = process.env.FIREBASE_REGION || "europe-west1";
+    const dbUrl = process.env.FIREBASE_DB_URL ||
+      (region === "us-central1"
+        ? `https://${cred.project_id}-default-rtdb.firebaseio.com`
+        : `https://${cred.project_id}-default-rtdb.${region}.firebasedatabase.app`);
+    if(admin.apps.length === 0){
+      admin.initializeApp({ credential: admin.credential.cert(cred), databaseURL: dbUrl });
+    }
+    fbRef = admin.database().ref(process.env.FIREBASE_PATH || "games/vrata-sudby");
+    fbReady = true;
+    log(`☁ Firebase подключён: ${dbUrl} / ${fbRef.path.toString()}`);
+    return true;
+  }catch(e){
+    log("⚠ Firebase не подключился:", e.message);
+    fbReady = false;
+    fbRef = null;
+    return false;
+  }
+}
+
+/** Записать в облако только изменившиеся ключи (экономим трафик бесплатного тарифа). */
+async function flushCloud(){
+  if(!fbReady || !fbRef) return;
+  if(!dirtyKeys.size) return;
+  const since = Date.now() - lastCloudWriteAt;
+  if(since < CLOUD_MIN_INTERVAL_MS){
+    scheduleCloudSave();
+    return;
+  }
+  const keys = Array.from(dirtyKeys);
+  dirtyKeys.clear();
+  try{
+    if(!gameState){
+      await fbRef.set(null);
+      lastCloudWriteAt = Date.now();
+      log("☁ В облаке очищено (новая сессия)");
+      return;
+    }
+    const patch = { _meta: { version: stateVersion, updatedAt: stateUpdatedAt } };
+    let bytes = 0;
+    keys.forEach(k=>{
+      const v = (k in gameState) ? gameState[k] : null;
+      patch[k] = (v === undefined) ? null : v;
+      try{ bytes += JSON.stringify(patch[k]).length; }catch(e){}
+    });
+    await fbRef.update(patch);
+    lastCloudWriteAt = Date.now();
+    log(`☁ В облако: ${keys.join(", ")} (${(bytes / 1048576).toFixed(2)} МБ)`);
+  }catch(e){
+    log("⚠ Ошибка записи в облако:", e.message);
+    keys.forEach(k=> dirtyKeys.add(k));   // повторим позже
+  }
+}
+
+/** Прочитать состояние из облака при старте. Возвращает true, если облако оказалось свежее файла. */
+async function loadFromCloud(){
+  if(!fbReady || !fbRef) return false;
+  try{
+    const snap = await fbRef.once("value");
+    const val = snap.val();
+    if(!val){
+      if(gameState){
+        log("☁ В облаке пусто, а в файле есть игра — заливаю её в облако");
+        markDirty(Object.keys(gameState));
+      }
+      return false;
+    }
+    const meta = val._meta || {};
+    delete val._meta;
+    const cloudUpdatedAt = parseInt(meta.updatedAt) || 0;
+    if(gameState && cloudUpdatedAt < stateUpdatedAt){
+      log(`☁ В облаке старее (${new Date(cloudUpdatedAt).toLocaleString()}), чем в файле — оставляю файл`);
+      markDirty(Object.keys(gameState));
+      return false;
+    }
+    gameState = val;
+    stateVersion = parseInt(meta.version) || 0;
+    stateUpdatedAt = cloudUpdatedAt;
+    log(`☁ Из облака: версия ${stateVersion}, изменено ${cloudUpdatedAt ? new Date(cloudUpdatedAt).toLocaleString() : "—"}`);
+    return true;
+  }catch(e){
+    log("⚠ Не удалось прочитать облако:", e.message);
+    return false;
+  }
+}
+
+// ---------- Изменения состояния ----------
+/** Отметить изменение состояния (версия ++, запись в файл и облако). */
 function touchState(saveOnly){
   if(!saveOnly){
     stateVersion++;
@@ -109,6 +231,7 @@ function adoptClientState(state, version, updatedAt, source){
   stateVersion = Math.max(stateVersion + 1, parseInt(version) || 0);
   stateUpdatedAt = Math.max(Date.now(), parseInt(updatedAt) || 0);
   scheduleSave();
+  markDirty(Object.keys(gameState));
   log(`↻ Принято состояние от ${source}: версия ${stateVersion}`);
   return true;
 }
@@ -144,6 +267,18 @@ app.get("/api/save", (_, res)=>{
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="vrata-save-v${stateVersion}.json"`);
   res.send(JSON.stringify({ version: stateVersion, updatedAt: stateUpdatedAt, state: gameState }));
+});
+
+// Информация о хранилищах (без секретов)
+app.get("/api/storage", (_, res)=>{
+  res.json({
+    file: path.basename(SAVE_FILE),
+    fileBytes: fs.existsSync(SAVE_FILE) ? fs.statSync(SAVE_FILE).size : 0,
+    cloud: fbReady ? (process.env.FIREBASE_PATH || "games/vrata-sudby") : null,
+    version: stateVersion,
+    updatedAt: stateUpdatedAt,
+    hasState: !!gameState
+  });
 });
 
 // SPA fallback
@@ -184,11 +319,12 @@ setInterval(()=>{
 }, 15000);
 
 // Страховка: раз в минуту досохраняем, если были изменения
-setInterval(()=>{ saveNow(); }, SAVE_EVERY_MS);
+setInterval(()=>{ saveNow(); scheduleCloudSave(); }, SAVE_EVERY_MS);
 
-wss.on("connection", (ws)=>{
+wss.on("connection", async (ws)=>{
   ws.isAlive = true;
   ws.on("pong", heartbeat);
+  try{ await bootPromise; }catch(e){}
 
   // Новый клиент сразу получает актуальное состояние (мастер для этого не нужен)
   sendState(ws);
@@ -223,6 +359,7 @@ wss.on("connection", (ws)=>{
         if(m.patch){
           applyPatchToState(m.patch);
           touchState();
+          markDirty(Object.keys(m.patch));
           broadcast(raw.toString(), ws);
         }
         return;
@@ -234,6 +371,7 @@ wss.on("connection", (ws)=>{
           gameState.chat.push(m.msg);
           if(gameState.chat.length > 200) gameState.chat = gameState.chat.slice(-200);
           touchState();
+          markDirty(["chat"]);
           broadcast(raw.toString(), ws);
         }
         return;
@@ -244,6 +382,7 @@ wss.on("connection", (ws)=>{
           if(!gameState.players) gameState.players = {};
           gameState.players[m.player.id] = Object.assign(gameState.players[m.player.id] || {}, m.player);
           touchState();
+          markDirty(["players"]);
           broadcast(raw.toString(), ws);
         }
         return;
@@ -256,6 +395,7 @@ wss.on("connection", (ws)=>{
           const prev = gameState.characters[m.character.id] || {};
           gameState.characters[m.character.id] = Object.assign({}, prev, m.character, { updatedAt: Date.now() });
           touchState();
+          markDirty(["characters"]);
           broadcast(raw.toString(), ws);
         }
         return;
@@ -265,16 +405,18 @@ wss.on("connection", (ws)=>{
           gameState.tokens[m.id].x = m.x;
           gameState.tokens[m.id].y = m.y;
           touchState(true);   // позиции не меняют версию, но попадают в сохранение
+          markDirty(["tokens"]);
         }
         broadcast(raw.toString(), ws);
         return;
 
       case "reset-state":
-        // Мастер начал новую сессию — обнуляем и в памяти, и в файле
+        // Мастер начал новую сессию — обнуляем и в памяти, и в файле, и в облаке
         gameState = null;
         stateVersion++;
         stateUpdatedAt = Date.now();
         scheduleSave();
+        markDirty(["__reset"]);
         log(`🧹 Состояние сброшено мастером, версия ${stateVersion}`);
         broadcastState();
         return;
@@ -293,32 +435,46 @@ wss.on("connection", (ws)=>{
 });
 
 // ---------- Старт ----------
-loadSave();
-
 if(require.main === module){
   server.listen(PORT, ()=>{
-    log(`⚔  Врата Судьбы: слушаю порт ${PORT}, сохранение: ${SAVE_FILE}`);
+    log(`⚔  Врата Судьбы: слушаю порт ${PORT}, файл сохранения: ${SAVE_FILE}`);
   });
 }
+
+// Загрузка сохранений до первого клиента: сначала файл, потом облако (если оно свежее)
+const bootPromise = (async ()=>{
+  loadSave();
+  initFirebase();
+  if(fbReady) await loadFromCloud();
+  return true;
+})();
 
 function shutdown(signal){
   log(`⏹ Получен ${signal} — сохраняю и выключаюсь`);
   try{ saveNow(true); }catch(e){}
-  try{ server.close(()=>process.exit(0)); }catch(e){ process.exit(0); }
-  setTimeout(()=>process.exit(0), 3000);
+  Promise.resolve(fbReady && fbRef ? flushCloud() : null).finally(()=>{
+    try{ server.close(()=>process.exit(0)); }catch(e){ process.exit(0); }
+    setTimeout(()=>process.exit(0), 3000);
+  });
 }
 process.on("SIGTERM", ()=>shutdown("SIGTERM"));
 process.on("SIGINT", ()=>shutdown("SIGINT"));
 
 // Для автотестов
 module.exports = {
-  app, server, wss,
+  app, server, wss, bootPromise,
   __test: {
-    loadSave, saveNow, scheduleSave,
+    loadSave, saveNow, scheduleSave, flushCloud, loadFromCloud, initFirebase, markDirty,
+    getDirtyKeys: ()=> Array.from(dirtyKeys),
+    clearDirty: ()=> dirtyKeys.clear(),
+    setCloudRef: (ref)=>{ fbRef = ref; fbReady = !!ref; },
+    resetCloudThrottle: ()=>{ lastCloudWriteAt = 0; },
+    isCloudReady: ()=> fbReady,
     getState: ()=> gameState,
     setState: (s)=>{ gameState = s; },
     getVersion: ()=> stateVersion,
     setVersion: (v)=>{ stateVersion = v; },
+    setUpdatedAt: (v)=>{ stateUpdatedAt = v; },
     resetMemory: ()=>{ gameState = null; stateVersion = 0; stateUpdatedAt = 0; lastSavedAt = 0; },
     isClientStateNewer, adoptClientState, applyPatchToState
   }
